@@ -5,12 +5,188 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Controlador - 100 Prgm   Dijeron</title>
     <style>
-        body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:20px}
-        .answers{display:flex;flex-direction:column;gap:8px;max-width:640px}
-        .answer{display:flex;justify-content:space-between;padding:10px;border-radius:6px;background:#f8fafc}
-        .answer.answer-correct{background:#e6ffef;border:1px solid #7ee4a3}
-        button{margin-left:8px}
-        header{display:flex;justify-content:space-between;align-items:center}
+        /* Modern controller design */
+        :root{
+            --bg-dark:#0a0e27;
+            --bg-card:#131829;
+            --accent:#00d9ff;
+            --accent-hover:#00b8d9;
+            --success:#10b981;
+            --danger:#ef4444;
+            --text-light:#e2e8f0;
+            --text-muted:#94a3b8;
+            --border:#1e293b;
+        }
+        
+        *{box-sizing:border-box;margin:0;padding:0}
+        
+        body{
+            font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial;
+            background:linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color:var(--text-light);
+            min-height:100vh;
+            padding:20px;
+        }
+        
+        header{
+            background:var(--bg-card);
+            padding:20px 30px;
+            border-radius:12px;
+            margin-bottom:24px;
+            box-shadow:0 4px 24px rgba(0,0,0,0.4);
+            border:1px solid var(--border);
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+        }
+        
+        h1{
+            font-size:28px;
+            font-weight:800;
+            color:var(--accent);
+            letter-spacing:0.5px;
+        }
+        
+        #state{
+            color:var(--success);
+            font-weight:600;
+        }
+        
+        section{
+            background:var(--bg-card);
+            padding:20px;
+            border-radius:12px;
+            margin-bottom:20px;
+            box-shadow:0 4px 24px rgba(0,0,0,0.4);
+            border:1px solid var(--border);
+        }
+        
+        h3{
+            color:var(--accent);
+            margin-bottom:16px;
+            font-size:18px;
+            font-weight:700;
+        }
+        
+        label{
+            display:inline-block;
+            color:var(--text-muted);
+            font-size:13px;
+            font-weight:600;
+            margin-bottom:6px;
+            text-transform:uppercase;
+            letter-spacing:0.5px;
+        }
+        
+        input[type="text"], input[type="number"], select{
+            background:rgba(255,255,255,0.05);
+            border:1px solid var(--border);
+            color:var(--text-light);
+            padding:10px 14px;
+            border-radius:8px;
+            font-size:14px;
+            transition:all 0.2s;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus{
+            outline:none;
+            border-color:var(--accent);
+            box-shadow:0 0 0 3px rgba(0,217,255,0.1);
+        }
+        
+        button{
+            background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
+            color:#fff;
+            border:none;
+            padding:8px 16px;
+            border-radius:6px;
+            font-weight:600;
+            font-size:13px;
+            cursor:pointer;
+            transition:all 0.2s;
+            margin-left:8px;
+            box-shadow:0 2px 8px rgba(0,217,255,0.3);
+        }
+        
+        button:hover{
+            transform:translateY(-2px);
+            box-shadow:0 4px 12px rgba(0,217,255,0.4);
+        }
+        
+        button:active{
+            transform:translateY(0);
+        }
+        
+        button:disabled{
+            background:linear-gradient(135deg, #334155 0%, #1e293b 100%);
+            cursor:not-allowed;
+            opacity:0.5;
+            box-shadow:none;
+        }
+        
+        #roundAssign{
+            background:rgba(16,185,129,0.1);
+            border:1px solid rgba(16,185,129,0.3);
+        }
+        
+        #roundAssign button{
+            background:linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            box-shadow:0 2px 8px rgba(16,185,129,0.3);
+        }
+        
+        #teamScoresDisplay{
+            display:flex;
+            gap:12px;
+            flex-wrap:wrap;
+        }
+        
+        #teamScoresDisplay > div{
+            background:rgba(0,217,255,0.05);
+            border:1px solid rgba(0,217,255,0.2);
+            padding:16px;
+            border-radius:10px;
+            min-width:140px;
+            text-align:center;
+        }
+        
+        .answers{
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+            max-width:100%;
+        }
+        
+        .answer{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            padding:16px;
+            border-radius:10px;
+            background:rgba(255,255,255,0.03);
+            border:1px solid var(--border);
+            transition:all 0.2s;
+        }
+        
+        .answer:hover{
+            background:rgba(255,255,255,0.05);
+            border-color:rgba(0,217,255,0.3);
+        }
+        
+        .answer.answer-correct{
+            background:rgba(16,185,129,0.1);
+            border:1px solid rgba(16,185,129,0.4);
+            box-shadow:0 0 20px rgba(16,185,129,0.2);
+        }
+        
+        .answer input{
+            margin-right:8px;
+        }
+        
+        .answer strong{
+            color:var(--accent);
+            margin-right:12px;
+            font-size:15px;
+        }
     </style>
 </head>
 <body>
