@@ -45,6 +45,20 @@
         .bg-grid{position:absolute;inset:0;pointer-events:none;mask-image:linear-gradient(180deg, rgba(0,0,0,1), rgba(0,0,0,0.2));}
         .small{font-size:12px;color:var(--muted)}
 
+        @keyframes strikeAppear {
+            0% {
+                transform: scale(0) rotate(-180deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.3) rotate(10deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
     @media (max-width:880px){ .dashboard .board-wrapper{flex-direction:column;align-items:stretch} .panel{order:2} }
     </style>
 </head>
@@ -76,6 +90,11 @@
                         </div>
                         <!-- Round points display -->
                         <div style="margin-top:6px;margin-bottom:6px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.04);color:#cfeffb;font-weight:700">Puntos de la ronda: <span id="roundPointsDisplay">0</span></div>
+
+                        <!-- Strikes (X's) Display - Horizontal -->
+                        <div id="strikesDisplay" style="margin-top:10px;margin-bottom:10px;display:flex;gap:15px;justify-content:center;align-items:center;flex-direction:row;">
+                            <!-- X's rendered here by JS -->
+                        </div>
 
                         <!-- Team score tables (Familia A / Familia B ejemplo) -->
                         <div id="teamScores" style="margin-top:10px;display:flex;gap:8px;align-items:stretch">
@@ -115,7 +134,20 @@
     <!-- decorative, no semantics -->
 </div>
 
+<!-- Countdown overlay -->
+<div id="countdownOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="text-align:center;">
+        <div id="countdownNumber" style="font-size:160px;font-weight:900;color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,0.8), 0 0 120px rgba(0,229,255,0.5);animation:pulse 1s infinite;">5</div>
+        <div style="font-size:24px;color:#8aa0b1;margin-top:20px;letter-spacing:4px;text-transform:uppercase;">Iniciando ronda...</div>
+    </div>
+</div>
 
+<style>
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+</style>
 
 <script>
 // Keep the same messaging contract: BroadcastChannel primary, localStorage fallback
@@ -130,9 +162,31 @@ if(usingBroadcast && channel){ channel.onmessage = (ev)=>{ handleIncoming(ev.dat
 
 const answersEl = document.getElementById('answers'); const stateEl = document.getElementById('state'); const questionEl = document.getElementById('question'); const mainScore = document.getElementById('mainScore'); const roundScore = document.getElementById('roundScore');
 let answers = [];
-let currentRound = {points:0, teams:[]};
+let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let roundReadySent = false;
 let teamScores = {}; // { 'Familia A': 0, 'Familia B': 0 }
+let strikeCount = 0; // Counter for X's
+
+function renderStrikes(){
+    const strikesDisplay = document.getElementById('strikesDisplay');
+    if(!strikesDisplay) return;
+    
+    strikesDisplay.innerHTML = '';
+    for(let i = 0; i < strikeCount; i++){
+        const xMark = document.createElement('div');
+        xMark.style.cssText = `
+            font-size: 60px;
+            color: #ef4444;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.8),
+                         0 0 40px rgba(239, 68, 68, 0.6),
+                         0 4px 8px rgba(0,0,0,0.5);
+            animation: strikeAppear 0.3s ease-out;
+        `;
+        xMark.textContent = '❌';
+        strikesDisplay.appendChild(xMark);
+    }
+}
 
 function render(){
     answersEl.innerHTML = '';
@@ -206,21 +260,44 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
         render();
     } else if(msg.type === 'state'){
         stateEl.textContent = msg.payload.state;
-    
+    } else if(msg.type === 'countdown'){
+        const countdownOverlay = document.getElementById('countdownOverlay');
+        const countdownNumber = document.getElementById('countdownNumber');
+        const count = msg.payload.count;
+        
+        if(count > 0){
+            countdownOverlay.style.display = 'flex';
+            countdownNumber.textContent = count;
+        } else {
+            countdownOverlay.style.display = 'none';
+        }
+    } else if(msg.type === 'update_strikes'){
+        // Update strike count
+        strikeCount = Number((msg.payload && msg.payload.count) || 0);
+        renderStrikes();
     } else if(msg.type === 'round_points'){
         // controller started a round; store points & teams and update display
         currentRound.points = Number((msg.payload && msg.payload.points) || 0);
         currentRound.teams = (msg.payload && msg.payload.teams) || [];
+        currentRound.accumulatedPoints = 0; // reset accumulated points for new round
         roundReadySent = false;
-        document.getElementById('roundPointsDisplay').textContent = String(currentRound.points);
+        document.getElementById('roundPointsDisplay').textContent = '0'; // start at 0
         // clear previous round winner
         const rw = document.getElementById('roundWinner'); if(rw) rw.textContent = '';
+        // reset strikes
+        strikeCount = 0;
+        renderStrikes();
     // replace teamScores with teams sent by controller (controller is authoritative)
     const newScores = {};
     (currentRound.teams || []).forEach(t=>{ newScores[t] = Number(teamScores[t] || 0); });
     teamScores = newScores;
         persistTeamScores();
         renderTeamScores();
+    } else if(msg.type === 'update_round_total'){
+        // Update accumulated round points display
+        const accumulatedPts = Number((msg.payload && msg.payload.points) || 0);
+        currentRound.accumulatedPoints = accumulatedPts;
+        document.getElementById('roundPointsDisplay').textContent = String(accumulatedPts);
     } else if(msg.type === 'assign_points'){
         const p = (msg.payload && Number(msg.payload.points)) || 0;
         const team = (msg.payload && msg.payload.team) || '';
@@ -234,6 +311,30 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
             persistTeamScores();
             renderTeamScores();
         }
+    } else if(msg.type === 'reset_all'){
+        // Complete reset of everything
+        answers = [];
+        teamScores = {};
+        currentRound = {points:0, teams:[], accumulatedPoints:0};
+        strikeCount = 0;
+        roundReadySent = false;
+        
+        // Clear localStorage
+        localStorage.removeItem('game-team-scores');
+        
+        // Update all displays
+        questionEl.textContent = '(esperando)';
+        stateEl.textContent = 'Listo';
+        document.getElementById('roundPointsDisplay').textContent = '0';
+        roundScore.textContent = '000';
+        mainScore.textContent = '000';
+        const rw = document.getElementById('roundWinner'); 
+        if(rw) rw.textContent = '';
+        
+        // Reset strikes and team scores
+        renderStrikes();
+        renderTeamScores();
+        render();
     }
 }
 

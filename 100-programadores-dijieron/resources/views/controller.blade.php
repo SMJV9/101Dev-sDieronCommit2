@@ -216,9 +216,13 @@
         <input id="roundPoints" type="number" value="10" style="width:100px;margin-right:8px" />
         <label>Equipos (coma-separated):</label>
         <input id="teamsInput" placeholder="Familia A,Familia B" style="width:280px;margin-left:8px" />
-        <div style="margin-top:8px"><button id="startRound">Iniciar ronda</button></div>
+        <div style="margin-top:8px">
+            <button id="startRound">Iniciar ronda</button>
+            <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
+            <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
+        </div>
         <div id="roundAssign" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f1f5f9">
-            <div id="roundReadyText" style="font-weight:700;color:#0b1220;margin-bottom:6px">La ronda terminó. Asignar puntos a:</div>
+            <div id="roundReadyText" style="font-weight:700;color:#0b1220;margin-bottom:6px">La ronda terminó. ¿Qué familia gana los puntos?</div>
             <div id="roundTeamButtons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
         </div>
         <div id="teamScoresDisplay" style="margin-top:10px;display:flex;gap:8px"></div>
@@ -274,7 +278,8 @@ const ctrlLogs = null;
 
 let answers = [];
 let teamScores = {}; // persisted per browser
-let currentRound = {points:0, teams:[]};
+let currentRound = {points:0, teams:[], accumulatedPoints:0};
+let strikeCount = 0; // Counter for X's (wrong answers)
 
 function render() {
     answersEl.innerHTML = '';
@@ -311,21 +316,22 @@ answersEl.addEventListener('click', (ev) => {
     } else if (action === 'correct') {
         // prevent double scoring: if already marked correct, ignore
         if(answers[idx] && answers[idx].correct) { return; }
-        // reveal and mark as correct locally; add points to selected team
-        const selectedTeam = (document.getElementById('teamSelect') && document.getElementById('teamSelect').value) || null;
+        
         const pts = Number(answers[idx] && answers[idx].count) || 0;
+        
         // reveal on board
         sendMessage({type:'reveal', payload:{index:idx}});
         answers[idx].revealed = true;
         answers[idx].correct = true;
-        if(selectedTeam){
-            if(!(selectedTeam in teamScores)) teamScores[selectedTeam] = 0;
-            teamScores[selectedTeam] = Number(teamScores[selectedTeam]||0) + pts;
-            persistTeamScores();
-            renderTeamScores();
-            // notify other clients (including the board) about assigned points
-            sendMessage({type:'assign_points', payload:{team: selectedTeam, points: pts}});
-        }
+        
+        // Add points to ROUND total (not to team yet!)
+        if(!currentRound.accumulatedPoints) currentRound.accumulatedPoints = 0;
+        currentRound.accumulatedPoints += pts;
+        
+        // Update round points display
+        sendMessage({type:'update_round_total', payload:{points: currentRound.accumulatedPoints}});
+        
+        render();
         showAssignIfRoundComplete();
     } else if (action === 'hide') {
         answers[idx].revealed = false;
@@ -379,14 +385,59 @@ startRoundBtn.addEventListener('click', ()=>{
     const pts = Number(roundPointsEl.value)||0;
     const teamNames = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
     if(teamNames.length === 0){ alert('Añade al menos un equipo'); return; }
-    sendMessage({type:'round_points', payload:{points:pts, teams: teamNames}});
-    // hide assignment area until board signals round_ready
-    roundAssignEl.style.display = 'none';
-    // ensure teams exist in local scores
-    teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
-    persistTeamScores();
-    renderTeamScores();
-    updateTeamSelect();
+    
+    // disable button during countdown
+    startRoundBtn.disabled = true;
+    const originalText = startRoundBtn.textContent;
+    
+    // countdown from 5 to 1
+    let countdown = 5;
+    startRoundBtn.textContent = `Iniciando en ${countdown}...`;
+    
+    // send countdown to board
+    sendMessage({type:'countdown', payload:{count: countdown}});
+    
+    const countdownInterval = setInterval(()=>{
+        countdown--;
+        if(countdown > 0){
+            startRoundBtn.textContent = `Iniciando en ${countdown}...`;
+            sendMessage({type:'countdown', payload:{count: countdown}});
+        } else {
+            clearInterval(countdownInterval);
+            startRoundBtn.textContent = originalText;
+            startRoundBtn.disabled = false;
+            
+            // hide countdown on board
+            sendMessage({type:'countdown', payload:{count: 0}});
+            
+            // clear answers but keep team scores
+            answers = [];
+            questionEl.value = '';
+            render();
+            
+            // reset strike count
+            strikeCount = 0;
+            updateStrikeDisplay();
+            sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+            
+            // send empty init to board to clear questions
+            sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
+            
+            // send round points
+            sendMessage({type:'round_points', payload:{points:pts, teams: teamNames}});
+            
+            // hide assignment area until board signals round_ready
+            roundAssignEl.style.display = 'none';
+            
+            // ensure teams exist in local scores (keep existing points)
+            teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
+            persistTeamScores();
+            renderTeamScores();
+            updateTeamSelect();
+            
+            stateEl.textContent = 'Nueva ronda';
+        }
+    }, 1000);
 });
 
 
@@ -394,16 +445,25 @@ function showAssignIfRoundComplete(){
     const realAnswers = answers.filter(a=>a && a.text);
     const allRevealed = realAnswers.length>0 && realAnswers.every(a=>a.revealed);
     if(allRevealed && currentRound && currentRound.points){
+        // Use accumulated points from correct answers (real game logic)
+        const finalPoints = currentRound.accumulatedPoints || 0;
+        
         roundTeamButtons.innerHTML = '';
+        // Show total points that will be awarded
+        const readyText = document.getElementById('roundReadyText');
+        if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos a:`;
+        
         (currentRound.teams || []).forEach(t=>{
             const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
-                sendMessage({type:'assign_points', payload:{team:t, points: currentRound.points}});
+                // Award ALL accumulated points to winning team
+                sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
                 if(!(t in teamScores)) teamScores[t]=0;
-                teamScores[t] = Number(teamScores[t]||0) + Number(currentRound.points||0);
+                teamScores[t] = Number(teamScores[t]||0) + finalPoints;
                 persistTeamScores();
                 renderTeamScores();
                 roundAssignEl.style.display = 'none';
-                currentRound = {points:0, teams:[]};
+                // Reset round
+                currentRound = {points:0, teams:[], accumulatedPoints:0};
             });
             roundTeamButtons.appendChild(b);
         });
@@ -438,11 +498,29 @@ document.getElementById('resend').addEventListener('click', ()=>{
 });
 
 document.getElementById('reset').addEventListener('click', () => {
+    // Reset everything to 0
     answers = [];
     questionEl.value = '';
-    sendMessage({type:'init', payload:{answers, state:'Listo'}});
-    stateEl.textContent = 'Listo';
+    strikeCount = 0;
+    currentRound = {points:0, teams:[], accumulatedPoints:0};
+    teamScores = {};
+    
+    // Clear localStorage first
+    localStorage.removeItem('game-team-scores');
+    
+    // Update displays
+    updateStrikeDisplay();
+    renderTeamScores();
     render();
+    
+    // Send comprehensive reset to board
+    sendMessage({type:'reset_all', payload:{}});
+    
+    stateEl.textContent = 'Listo';
+    
+    // Hide assignment area
+    const roundAssignEl = document.getElementById('roundAssign');
+    if(roundAssignEl) roundAssignEl.style.display = 'none';
 });
 
 channel.onmessage = (ev) => {
@@ -526,14 +604,41 @@ channel.onmessage = (ev) => {
     // logging disabled
     function logCtrl(text){}
 
-
     // auto-resend when answers change, to help boards that miss initial message
     let autoResendTimer = null;
     // auto-resend when answers change, to help boards that miss initial message
     function scheduleAutoResend(){ if(autoResendTimer) clearTimeout(autoResendTimer); autoResendTimer = setTimeout(()=>{ const payload = {answers, state:stateEl.textContent, question:questionEl.value}; sendMessage({type:'init', payload}); }, 800); }
+    
+    // Call handleIncoming on received messages
+    handleIncoming(ev.data);
 };
 
+// Strike (X) management
+function updateStrikeDisplay(){
+    const strikeCountEl = document.getElementById('strikeCount');
+    if(strikeCountEl){
+        strikeCountEl.textContent = `X: ${strikeCount}/3`;
+        strikeCountEl.style.color = strikeCount >= 3 ? '#dc2626' : '#ef4444';
+    }
+}
+
+// Add strike button listener
+const addStrikeBtn = document.getElementById('addStrike');
+if(addStrikeBtn){
+    addStrikeBtn.addEventListener('click', ()=>{
+        if(strikeCount < 3){
+            strikeCount++;
+        } else {
+            // Reset to 1 if already at 3
+            strikeCount = 1;
+        }
+        updateStrikeDisplay();
+        sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+    });
+}
+
 render();
+updateStrikeDisplay();
 
 // persist & render helpers for controller
 function persistTeamScores(){ try{ localStorage.setItem('game-team-scores', JSON.stringify(teamScores)); }catch(e){} }
