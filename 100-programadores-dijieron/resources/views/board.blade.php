@@ -67,6 +67,14 @@
             }
         }
 
+        /* Steal (robo de puntos) overlay */
+        .steal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:10050}
+        .steal-card{background:radial-gradient(circle at 50% 50%, rgba(239,68,68,0.95) 0%, rgba(249,115,22,0.9) 100%);color:#fff;padding:28px 40px;border-radius:16px;text-align:center;box-shadow:0 22px 80px rgba(239,68,68,0.6),0 0 0 4px rgba(255,255,255,0.08)}
+        .steal-title{font-size:56px;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-shadow:0 0 40px rgba(255,255,255,0.3),0 0 80px rgba(249,115,22,0.5)}
+        .steal-sub{margin-top:8px;font-size:22px;font-weight:800;opacity:.96}
+        @keyframes steal-pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
+        @keyframes steal-glow{0%{box-shadow:0 0 40px rgba(239,68,68,.55),0 0 0 4px rgba(255,255,255,0.08)}100%{box-shadow:0 0 90px rgba(249,115,22,.7),0 0 0 6px rgba(255,255,255,0.1)}}
+
     @media (max-width:880px){ .dashboard .board-wrapper{flex-direction:column;align-items:stretch} .panel{order:2} }
     </style>
 </head>
@@ -97,7 +105,10 @@
                             <span id="question">(esperando)</span>
                         </div>
                         <!-- Round points display -->
-                        <div style="margin-top:6px;margin-bottom:6px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.04);color:#cfeffb;font-weight:700">Puntos de la ronda: <span id="roundPointsDisplay">0</span></div>
+                        <div style="margin-top:6px;margin-bottom:6px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.04);color:#cfeffb;font-weight:700">
+                            Puntos de la ronda: <span id="roundPointsDisplay">0</span>
+                            <span id="roundNumberDisplay" style="margin-left:12px;color:var(--accent)">Ronda: 1</span>
+                        </div>
 
                         <!-- Strikes (X's) Display - Horizontal -->
                         <div id="strikesDisplay" style="margin-top:10px;margin-bottom:10px;display:flex;gap:15px;justify-content:center;align-items:center;flex-direction:row;">
@@ -142,11 +153,13 @@
     <!-- decorative, no semantics -->
 </div>
 
-<!-- Steal banner -->
-<div id="stealBanner" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;background:linear-gradient(135deg,#ef4444 0%, #f97316 100%);color:white;padding:14px 22px;border-radius:999px;font-weight:900;letter-spacing:1px;box-shadow:0 8px 30px rgba(239,68,68,0.45),0 0 0 2px rgba(255,255,255,0.08);text-transform:uppercase">
-    ¡Robo de puntos!
-    <span id="stealBannerSub" style="font-weight:700;opacity:.9;margin-left:8px;text-transform:none"></span>
+<!-- Steal overlay (centered) -->
+<div id="stealOverlay" class="steal-overlay">
+    <div id="stealCard" class="steal-card" style="animation:steal-pop .35s ease-out, steal-glow 1.2s ease-in-out infinite alternate">
+        <div class="steal-title">¡Robo de puntos!</div>
+        <div id="stealOverlaySub" class="steal-sub"></div>
     </div>
+</div>
 
 <!-- Countdown overlay -->
 <div id="countdownOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;">
@@ -305,6 +318,10 @@ function handleIncoming(msg){
         currentRound.accumulatedPoints = 0; // reset accumulated points for new round
         roundReadySent = false;
         document.getElementById('roundPointsDisplay').textContent = '0'; // start at 0
+        // Update round number display
+        const roundNum = Number((msg.payload && msg.payload.roundNumber) || 1);
+        const roundNumEl = document.getElementById('roundNumberDisplay');
+        if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNum}`;
         // clear previous round winner
         const rw = document.getElementById('roundWinner'); if(rw) rw.textContent = '';
         // reset strikes
@@ -364,6 +381,8 @@ function handleIncoming(msg){
         questionEl.textContent = '(esperando)';
         stateEl.textContent = 'Listo';
         document.getElementById('roundPointsDisplay').textContent = '0';
+        const roundNumEl = document.getElementById('roundNumberDisplay');
+        if(roundNumEl) roundNumEl.textContent = 'Ronda: 1';
         roundScore.textContent = '000';
         mainScore.textContent = '000';
         const rw = document.getElementById('roundWinner'); 
@@ -397,8 +416,8 @@ function handleIncoming(msg){
         renderStrikes();
         renderTeamScores();
         render();
-        // hide steal banner if visible
-        const sb = document.getElementById('stealBanner'); if(sb) sb.style.display = 'none';
+        // hide steal overlay if visible
+        const so = document.getElementById('stealOverlay'); if(so) so.style.display = 'none';
         console.log('[board] ===== RESET ALL COMPLETADO =====');
     }
 }
@@ -424,24 +443,24 @@ document.addEventListener('keydown', (e)=>{ if(e.key && e.key.toLowerCase() === 
 // small helper to avoid XSS in injected text
 function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; }); }
 
-// Steal banner helper
+// Steal overlay helper
 let stealTimeout = null;
 function showStealBanner(team, points){
-    const banner = document.getElementById('stealBanner');
-    const sub = document.getElementById('stealBannerSub');
-    if(!banner) return;
+    const overlay = document.getElementById('stealOverlay');
+    const sub = document.getElementById('stealOverlaySub');
+    if(!overlay) return;
     if(sub){
         const t = team ? `→ ${escapeHtml(team)}` : '';
         const p = Number(points||0) > 0 ? `+${points}` : '';
         sub.textContent = `${t} ${p}`.trim();
     }
-    banner.style.display = 'block';
-    banner.style.opacity = '1';
-    banner.style.transition = 'opacity .4s ease';
+    overlay.style.display = 'flex';
+    overlay.style.opacity = '1';
+    overlay.style.transition = 'opacity .4s ease';
     if(stealTimeout) clearTimeout(stealTimeout);
     stealTimeout = setTimeout(()=>{
-        banner.style.opacity = '0';
-        setTimeout(()=>{ banner.style.display = 'none'; }, 400);
+        overlay.style.opacity = '0';
+        setTimeout(()=>{ overlay.style.display = 'none'; }, 400);
     }, 2200);
 }
 </script>

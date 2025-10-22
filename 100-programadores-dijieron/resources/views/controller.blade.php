@@ -222,8 +222,10 @@
         <span id="teamsValidation" style="margin-left:10px;color:#ef4444;font-weight:600;display:none">Ingresa al menos dos equipos</span>
         <div style="margin-top:8px">
             <button id="startRound">Iniciar ronda</button>
+            <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
+            <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
         </div>
         <div id="turnControls" style="display:none">
             <label style="margin-right:8px">Turno:</label>
@@ -290,6 +292,7 @@ let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let strikeCount = 0; // Counter for X's (wrong answers)
 let autoResendTimer = null;
 let activeTeam = null; // current team answering
+let roundNumber = 1; // Track which round we're on
 
 // auto-resend when answers change, to help boards that miss initial message
 function scheduleAutoResend(){ 
@@ -397,6 +400,7 @@ document.getElementById('addAnswer').addEventListener('click', ()=>{
 const teamsInput = document.getElementById('teamsInput');
 const teamsValidation = document.getElementById('teamsValidation');
 const startRoundBtn = document.getElementById('startRound');
+const nextRoundBtn = document.getElementById('nextRound');
 const roundAssignEl = document.getElementById('roundAssign');
 const roundTeamButtons = document.getElementById('roundTeamButtons');
 const turnControls = document.getElementById('turnControls');
@@ -406,20 +410,56 @@ const activeTeamButtons = document.getElementById('activeTeamButtons');
 teamsInput.addEventListener('input', ()=>{
     const names = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
     const valid = names.length >= 2;
-    if(teamsValidation) teamsValidation.style.display = valid ? 'none' : 'inline-block';
+    if(teamsValidation) {
+        teamsValidation.textContent = valid ? 'Ingresa al menos dos equipos' : 'Ingresa al menos dos equipos';
+        teamsValidation.style.display = valid ? 'none' : 'inline-block';
+    }
+    // Enable/disable 'Siguiente ronda' based on whether input matches current teams
+    const parsed = Array.from(new Set(names)).slice(0,2);
+    const currentTeams = (currentRound && Array.isArray(currentRound.teams)) ? currentRound.teams : [];
+    const teamsMatch = parsed.length === 2 && currentTeams.length === 2 && 
+                       parsed.every(t => currentTeams.includes(t)) && 
+                       currentTeams.every(t => parsed.includes(t));
+    if(nextRoundBtn) nextRoundBtn.disabled = !teamsMatch;
 });
 
 startRoundBtn.addEventListener('click', ()=>{
-    const teamNames = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-    if(teamNames.length < 2){
-        if(teamsValidation) teamsValidation.style.display = 'inline-block';
+    // Parse, dedupe and LIMIT to exactly 2 teams
+    const parsed = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const teamNames = Array.from(new Set(parsed)).slice(0,2);
+    if(teamNames.length !== 2){
+        if(teamsValidation){ teamsValidation.textContent = 'Ingresa exactamente dos equipos'; teamsValidation.style.display = 'inline-block'; }
         return;
     } else {
-        if(teamsValidation) teamsValidation.style.display = 'none';
+        if(teamsValidation){ teamsValidation.textContent = 'Ingresa al menos dos equipos'; teamsValidation.style.display = 'none'; }
     }
-    
+    // New game round: reset scoreboard for these 2 teams
+    roundNumber = 1;
+    runRound(teamNames, /*keepScores*/ false);
+});
+
+// Start next round keeping existing scores and same teams (if available)
+nextRoundBtn.addEventListener('click', ()=>{
+    let teamNames = [];
+    if(currentRound && Array.isArray(currentRound.teams) && currentRound.teams.length === 2){
+        teamNames = currentRound.teams.slice(0,2);
+    } else {
+        const parsed = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+        teamNames = Array.from(new Set(parsed)).slice(0,2);
+    }
+    if(teamNames.length !== 2){
+        if(teamsValidation){ teamsValidation.textContent = 'Ingresa exactamente dos equipos'; teamsValidation.style.display = 'inline-block'; }
+        return;
+    }
+    roundNumber++;
+    runRound(teamNames, /*keepScores*/ true);
+});
+
+// Common routine to transition to a new round
+function runRound(teamNames, keepScores){
     // disable button during countdown
     startRoundBtn.disabled = true;
+    nextRoundBtn.disabled = true;
     const originalText = startRoundBtn.textContent;
     
     // countdown from 5 to 1
@@ -438,6 +478,7 @@ startRoundBtn.addEventListener('click', ()=>{
             clearInterval(countdownInterval);
             startRoundBtn.textContent = originalText;
             startRoundBtn.disabled = false;
+            nextRoundBtn.disabled = false;
             
             // hide countdown on board
             sendMessage({type:'countdown', payload:{count: 0}});
@@ -456,11 +497,12 @@ startRoundBtn.addEventListener('click', ()=>{
             sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
             
             // announce teams and reset round points to 0 (round points accumulate automatically on aciertos)
-            sendMessage({type:'round_points', payload:{points:0, teams: teamNames}});
+            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber}});
             // Make sure controller local state also knows the teams immediately (works even if storage fallback)
             currentRound.points = 0;
             currentRound.accumulatedPoints = 0;
             currentRound.teams = teamNames.slice();
+            currentRound.roundNumber = roundNumber;
 
             // reset active team UI and board highlight
             activeTeam = null;
@@ -471,15 +513,28 @@ startRoundBtn.addEventListener('click', ()=>{
             // hide assignment area until board signals round_ready
             roundAssignEl.style.display = 'none';
             
-            // ensure teams exist in local scores (keep existing points)
-            teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
+            // Score handling
+            if(keepScores){
+                // keep existing totals; just ensure keys exist
+                teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
+                // also remove any extra teams beyond these two
+                Object.keys(teamScores).forEach(k=>{ if(!teamNames.includes(k)) delete teamScores[k]; });
+            } else {
+                // reset to 0 for a fresh game with these two
+                teamScores = {};
+                teamNames.forEach(t=>{ teamScores[t] = 0; });
+            }
             persistTeamScores();
             renderTeamScores();
+            
+            // Update round number display
+            const roundNumEl = document.getElementById('roundNumber');
+            if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNumber}`;
             
             stateEl.textContent = 'Nueva ronda';
         }
     }, 1000);
-});
+}
 
 
 function showAssignIfRoundComplete(){
@@ -567,6 +622,7 @@ document.getElementById('reset').addEventListener('click', () => {
     currentRound = {points:0, teams:[], accumulatedPoints:0};
     activeTeam = null;
     teamScores = {};
+    roundNumber = 1;
     
     // Clear localStorage first
     localStorage.removeItem('game-team-scores');
@@ -575,6 +631,8 @@ document.getElementById('reset').addEventListener('click', () => {
     updateStrikeDisplay();
     renderTeamScores();
     render();
+    const roundNumEl = document.getElementById('roundNumber');
+    if(roundNumEl) roundNumEl.textContent = 'Ronda: 1';
     
     // Send comprehensive reset to board
     console.log('[controller] ===== RESET CLICKED =====');
