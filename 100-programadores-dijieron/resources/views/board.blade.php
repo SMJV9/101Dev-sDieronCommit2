@@ -25,6 +25,14 @@
         .score .num{font-size:34px;font-weight:900;color:var(--accent);letter-spacing:2px}
         .score .lbl{font-size:11px;color:var(--muted);margin-top:6px}
 
+        /* Active team highlight */
+        .team-card{position:relative;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease}
+        .team-card.active{
+            box-shadow:0 0 0 2px rgba(0,229,255,0.5), 0 0 22px rgba(0,229,255,0.25);
+            border-color: rgba(0,229,255,0.6) !important;
+            transform: translateY(-2px);
+        }
+
         /* Grid of answers */
         .answers-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
         .cell{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,0.04);min-height:64px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
@@ -134,6 +142,12 @@
     <!-- decorative, no semantics -->
 </div>
 
+<!-- Steal banner -->
+<div id="stealBanner" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;background:linear-gradient(135deg,#ef4444 0%, #f97316 100%);color:white;padding:14px 22px;border-radius:999px;font-weight:900;letter-spacing:1px;box-shadow:0 8px 30px rgba(239,68,68,0.45),0 0 0 2px rgba(255,255,255,0.08);text-transform:uppercase">
+    ¡Robo de puntos!
+    <span id="stealBannerSub" style="font-weight:700;opacity:.9;margin-left:8px;text-transform:none"></span>
+    </div>
+
 <!-- Countdown overlay -->
 <div id="countdownOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;">
     <div style="text-align:center;">
@@ -166,6 +180,7 @@ let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let roundReadySent = false;
 let teamScores = {}; // { 'Familia A': 0, 'Familia B': 0 }
 let strikeCount = 0; // Counter for X's
+let activeTeam = null; // highlighted team answering
 
 function renderStrikes(){
     const strikesDisplay = document.getElementById('strikesDisplay');
@@ -240,6 +255,7 @@ function renderTeamScores(){
         wrapper.style.borderRadius = '8px';
         wrapper.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04))';
         wrapper.style.border = '1px solid rgba(255,255,255,0.03)';
+        wrapper.className = 'team-card' + (activeTeam === name ? ' active' : '');
         wrapper.innerHTML = `<div style="font-size:12px;color:var(--muted);">${escapeHtml(name)}</div><div style="font-weight:800;font-size:20px;color:var(--accent);">${String(teamScores[name]||0).padStart(3,'0')}</div>`;
         el.appendChild(wrapper);
     });
@@ -305,6 +321,15 @@ function handleIncoming(msg){
         const accumulatedPts = Number((msg.payload && msg.payload.points) || 0);
         currentRound.accumulatedPoints = accumulatedPts;
         document.getElementById('roundPointsDisplay').textContent = String(accumulatedPts);
+    } else if(msg.type === 'steal'){
+        // Show a visual banner for steal/robo de puntos
+        const toTeam = msg.payload && msg.payload.toTeam ? String(msg.payload.toTeam) : '';
+        const pts = msg.payload && Number(msg.payload.points) ? Number(msg.payload.points) : 0;
+        showStealBanner(toTeam, pts);
+    } else if(msg.type === 'active_team'){
+        // Highlight which team is currently answering
+        activeTeam = (msg.payload && msg.payload.team) ? String(msg.payload.team) : null;
+        renderTeamScores();
     } else if(msg.type === 'assign_points'){
         const p = (msg.payload && Number(msg.payload.points)) || 0;
         const team = (msg.payload && msg.payload.team) || '';
@@ -328,6 +353,7 @@ function handleIncoming(msg){
         currentRound = {points:0, teams:[], accumulatedPoints:0};
         strikeCount = 0;
         roundReadySent = false;
+        activeTeam = null;
         
         console.log('[board] strikeCount DESPUÉS:', strikeCount);
         
@@ -371,6 +397,8 @@ function handleIncoming(msg){
         renderStrikes();
         renderTeamScores();
         render();
+        // hide steal banner if visible
+        const sb = document.getElementById('stealBanner'); if(sb) sb.style.display = 'none';
         console.log('[board] ===== RESET ALL COMPLETADO =====');
     }
 }
@@ -395,6 +423,27 @@ document.addEventListener('keydown', (e)=>{ if(e.key && e.key.toLowerCase() === 
 
 // small helper to avoid XSS in injected text
 function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; }); }
+
+// Steal banner helper
+let stealTimeout = null;
+function showStealBanner(team, points){
+    const banner = document.getElementById('stealBanner');
+    const sub = document.getElementById('stealBannerSub');
+    if(!banner) return;
+    if(sub){
+        const t = team ? `→ ${escapeHtml(team)}` : '';
+        const p = Number(points||0) > 0 ? `+${points}` : '';
+        sub.textContent = `${t} ${p}`.trim();
+    }
+    banner.style.display = 'block';
+    banner.style.opacity = '1';
+    banner.style.transition = 'opacity .4s ease';
+    if(stealTimeout) clearTimeout(stealTimeout);
+    stealTimeout = setTimeout(()=>{
+        banner.style.opacity = '0';
+        setTimeout(()=>{ banner.style.display = 'none'; }, 400);
+    }, 2200);
+}
 </script>
 
 </body>

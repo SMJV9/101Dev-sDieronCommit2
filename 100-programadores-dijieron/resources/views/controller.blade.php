@@ -123,6 +123,11 @@
             opacity:0.5;
             box-shadow:none;
         }
+
+        /* Active team selector styling */
+        #turnControls{margin-top:10px}
+        .active-team-btn{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#e2e8f0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+        .active-team-btn.selected{background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%); box-shadow:0 0 0 2px rgba(0,217,255,0.4);}
         
         #roundAssign{
             background:rgba(16,185,129,0.1);
@@ -212,14 +217,17 @@
     
     <section style="margin-top:12px">
         <h3>Ronda</h3>
-        <label>Puntos de la ronda:</label>
-        <input id="roundPoints" type="number" value="10" style="width:100px;margin-right:8px" />
-        <label>Equipos (coma-separated):</label>
-        <input id="teamsInput" placeholder="Familia A,Familia B" style="width:280px;margin-left:8px" />
+        <label>Equipos (separados por coma):</label>
+        <input id="teamsInput" placeholder="Equipo 1,Equipo 2" style="width:320px;margin-left:8px" />
+        <span id="teamsValidation" style="margin-left:10px;color:#ef4444;font-weight:600;display:none">Ingresa al menos dos equipos</span>
         <div style="margin-top:8px">
             <button id="startRound">Iniciar ronda</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
+        </div>
+        <div id="turnControls" style="display:none">
+            <label style="margin-right:8px">Turno:</label>
+            <div id="activeTeamButtons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
         </div>
         <div id="roundAssign" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f1f5f9">
             <div id="roundReadyText" style="font-weight:700;color:#0b1220;margin-bottom:6px">La ronda terminó. ¿Qué familia gana los puntos?</div>
@@ -281,6 +289,7 @@ let teamScores = {}; // persisted per browser
 let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let strikeCount = 0; // Counter for X's (wrong answers)
 let autoResendTimer = null;
+let activeTeam = null; // current team answering
 
 // auto-resend when answers change, to help boards that miss initial message
 function scheduleAutoResend(){ 
@@ -385,16 +394,29 @@ document.getElementById('addAnswer').addEventListener('click', ()=>{
 });
 
 // round controls
-const roundPointsEl = document.getElementById('roundPoints');
 const teamsInput = document.getElementById('teamsInput');
+const teamsValidation = document.getElementById('teamsValidation');
 const startRoundBtn = document.getElementById('startRound');
 const roundAssignEl = document.getElementById('roundAssign');
 const roundTeamButtons = document.getElementById('roundTeamButtons');
+const turnControls = document.getElementById('turnControls');
+const activeTeamButtons = document.getElementById('activeTeamButtons');
+
+// live validation for teams
+teamsInput.addEventListener('input', ()=>{
+    const names = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const valid = names.length >= 2;
+    if(teamsValidation) teamsValidation.style.display = valid ? 'none' : 'inline-block';
+});
 
 startRoundBtn.addEventListener('click', ()=>{
-    const pts = Number(roundPointsEl.value)||0;
     const teamNames = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-    if(teamNames.length === 0){ alert('Añade al menos un equipo'); return; }
+    if(teamNames.length < 2){
+        if(teamsValidation) teamsValidation.style.display = 'inline-block';
+        return;
+    } else {
+        if(teamsValidation) teamsValidation.style.display = 'none';
+    }
     
     // disable button during countdown
     startRoundBtn.disabled = true;
@@ -433,8 +455,18 @@ startRoundBtn.addEventListener('click', ()=>{
             // send empty init to board to clear questions
             sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
             
-            // send round points
-            sendMessage({type:'round_points', payload:{points:pts, teams: teamNames}});
+            // announce teams and reset round points to 0 (round points accumulate automatically on aciertos)
+            sendMessage({type:'round_points', payload:{points:0, teams: teamNames}});
+            // Make sure controller local state also knows the teams immediately (works even if storage fallback)
+            currentRound.points = 0;
+            currentRound.accumulatedPoints = 0;
+            currentRound.teams = teamNames.slice();
+
+            // reset active team UI and board highlight
+            activeTeam = null;
+            renderActiveTeamButtons(teamNames);
+            turnControls.style.display = 'block';
+            sendMessage({type:'active_team', payload:{team:null}});
             
             // hide assignment area until board signals round_ready
             roundAssignEl.style.display = 'none';
@@ -443,7 +475,6 @@ startRoundBtn.addEventListener('click', ()=>{
             teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
             persistTeamScores();
             renderTeamScores();
-            updateTeamSelect();
             
             stateEl.textContent = 'Nueva ronda';
         }
@@ -454,43 +485,64 @@ startRoundBtn.addEventListener('click', ()=>{
 function showAssignIfRoundComplete(){
     const realAnswers = answers.filter(a=>a && a.text);
     const allRevealed = realAnswers.length>0 && realAnswers.every(a=>a.revealed);
-    if(allRevealed && currentRound && currentRound.points){
-        // Use accumulated points from correct answers (real game logic)
-        const finalPoints = currentRound.accumulatedPoints || 0;
-        
-        roundTeamButtons.innerHTML = '';
-        // Show total points that will be awarded
-        const readyText = document.getElementById('roundReadyText');
-        if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos a:`;
-        
-        (currentRound.teams || []).forEach(t=>{
-            const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
-                // Award ALL accumulated points to winning team
-                sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
-                if(!(t in teamScores)) teamScores[t]=0;
-                teamScores[t] = Number(teamScores[t]||0) + finalPoints;
-                persistTeamScores();
-                renderTeamScores();
-                roundAssignEl.style.display = 'none';
-                // Reset round
-                currentRound = {points:0, teams:[], accumulatedPoints:0};
+    if(allRevealed && currentRound){
+        const finalPoints = Number(currentRound.accumulatedPoints || 0);
+        if(finalPoints <= 0) return;
+
+        if(activeTeam){
+            // Auto-assign to selected active team
+            sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints}});
+            if(!(activeTeam in teamScores)) teamScores[activeTeam]=0;
+            teamScores[activeTeam] = Number(teamScores[activeTeam]||0) + finalPoints;
+            persistTeamScores();
+            renderTeamScores();
+            roundAssignEl.style.display = 'none';
+            currentRound = {points:0, teams:[], accumulatedPoints:0};
+        } else {
+            // Fallback: manual choose winner if no active team selected
+            roundTeamButtons.innerHTML = '';
+            const readyText = document.getElementById('roundReadyText');
+            if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos a:`;
+            (currentRound.teams || []).forEach(t=>{
+                const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
+                    sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
+                    if(!(t in teamScores)) teamScores[t]=0;
+                    teamScores[t] = Number(teamScores[t]||0) + finalPoints;
+                    persistTeamScores();
+                    renderTeamScores();
+                    roundAssignEl.style.display = 'none';
+                    currentRound = {points:0, teams:[], accumulatedPoints:0};
+                });
+                roundTeamButtons.appendChild(b);
             });
-            roundTeamButtons.appendChild(b);
-        });
-        roundAssignEl.style.display = 'block';
+            roundAssignEl.style.display = 'block';
+        }
     }
 }
 
-// add a team selector to choose which team receives points on 'Acierto'
-const teamSelect = document.createElement('select'); teamSelect.id = 'teamSelect'; teamSelect.style.marginLeft = '8px';
-startRoundBtn.parentNode.appendChild(teamSelect);
-function updateTeamSelect(){
-    teamSelect.innerHTML = '';
-    (Object.keys(teamScores).length?Object.keys(teamScores):['Familia A','Familia B']).forEach(t=>{
-        const o = document.createElement('option'); o.value = t; o.textContent = t; teamSelect.appendChild(o);
+// Active team selection buttons
+function renderActiveTeamButtons(names){
+    if(!activeTeamButtons) return;
+    activeTeamButtons.innerHTML = '';
+    (names || []).forEach(name=>{
+        const b = document.createElement('button');
+        b.className = 'active-team-btn' + (activeTeam === name ? ' selected' : '');
+        b.textContent = name;
+        b.addEventListener('click', ()=> selectActiveTeam(name));
+        activeTeamButtons.appendChild(b);
     });
 }
-updateTeamSelect();
+
+function selectActiveTeam(name){
+    activeTeam = name;
+    currentRound.activeTeam = name;
+    // Update buttons selection
+    Array.from(activeTeamButtons.children).forEach(child=>{
+        child.classList.toggle('selected', child.textContent === name);
+    });
+    // Inform board to highlight
+    sendMessage({type:'active_team', payload:{team:name}});
+}
 
 
 document.getElementById('sendInit').addEventListener('click', () => {
@@ -513,6 +565,7 @@ document.getElementById('reset').addEventListener('click', () => {
     questionEl.value = '';
     strikeCount = 0;
     currentRound = {points:0, teams:[], accumulatedPoints:0};
+    activeTeam = null;
     teamScores = {};
     
     // Clear localStorage first
@@ -538,6 +591,9 @@ document.getElementById('reset').addEventListener('click', () => {
     // Hide assignment area
     const roundAssignEl = document.getElementById('roundAssign');
     if(roundAssignEl) roundAssignEl.style.display = 'none';
+    if(turnControls) turnControls.style.display = 'none';
+    // Clear active team highlight on board
+    sendMessage({type:'active_team', payload:{team:null}});
 });
 
 channel.onmessage = (ev) => {
@@ -589,24 +645,35 @@ channel.onmessage = (ev) => {
             // check if all real answers are revealed -> then show assign UI
             const realAnswers = answers.filter(a=>a && a.text);
             const allRevealed = realAnswers.length>0 && realAnswers.every(a=>a.revealed);
-            if(allRevealed && currentRound && currentRound.points){
-                // show assign buttons populated with currentRound.teams
-                roundTeamButtons.innerHTML = '';
-                (currentRound.teams || []).forEach(t=>{
-                    const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
-                        sendMessage({type:'assign_points', payload:{team:t, points: currentRound.points}});
-                        // update local scores too
-                        if(!(t in teamScores)) teamScores[t]=0;
-                        teamScores[t] = Number(teamScores[t]||0) + Number(currentRound.points||0);
+            if(allRevealed && currentRound){
+                const finalPoints = Number(currentRound.accumulatedPoints || 0);
+                if(finalPoints > 0){
+                    if(activeTeam){
+                        sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints}});
+                        if(!(activeTeam in teamScores)) teamScores[activeTeam]=0;
+                        teamScores[activeTeam] = Number(teamScores[activeTeam]||0) + finalPoints;
                         persistTeamScores();
                         renderTeamScores();
                         roundAssignEl.style.display = 'none';
-                        // clear current round
-                        currentRound = {points:0, teams:[]};
-                    });
-                    roundTeamButtons.appendChild(b);
-                });
-                roundAssignEl.style.display = 'block';
+                        currentRound = {points:0, teams:[], accumulatedPoints:0};
+                    } else {
+                        // Fallback manual assignment
+                        roundTeamButtons.innerHTML = '';
+                        (currentRound.teams || []).forEach(t=>{
+                            const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
+                                sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
+                                if(!(t in teamScores)) teamScores[t]=0;
+                                teamScores[t] = Number(teamScores[t]||0) + finalPoints;
+                                persistTeamScores();
+                                renderTeamScores();
+                                roundAssignEl.style.display = 'none';
+                                currentRound = {points:0, teams:[], accumulatedPoints:0};
+                            });
+                            roundTeamButtons.appendChild(b);
+                        });
+                        roundAssignEl.style.display = 'block';
+                    }
+                }
             }
             return;
         }
@@ -638,14 +705,17 @@ function updateStrikeDisplay(){
 const addStrikeBtn = document.getElementById('addStrike');
 if(addStrikeBtn){
     addStrikeBtn.addEventListener('click', ()=>{
+        // increment strike count for the team currently en turno
         if(strikeCount < 3){
             strikeCount++;
-        } else {
-            // Reset to 1 if already at 3
-            strikeCount = 1;
+            updateStrikeDisplay();
+            sendMessage({type:'update_strikes', payload:{count: strikeCount}});
         }
-        updateStrikeDisplay();
-        sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+
+        // On 3 strikes, perform steal: award round points to the OTHER team
+        if(strikeCount >= 3){
+            handleThreeStrikesSteal();
+        }
     });
 }
 
@@ -654,8 +724,46 @@ updateStrikeDisplay();
 
 // persist & render helpers for controller
 function persistTeamScores(){ try{ localStorage.setItem('game-team-scores', JSON.stringify(teamScores)); }catch(e){} }
-function renderTeamScores(){ const el = document.getElementById('teamScoresDisplay'); if(!el) return; el.innerHTML = ''; if(Object.keys(teamScores).length===0) { teamScores = {'Familia A':0,'Familia B':0}; }
+function renderTeamScores(){ const el = document.getElementById('teamScoresDisplay'); if(!el) return; el.innerHTML = '';
     Object.keys(teamScores).forEach(name=>{ const d = document.createElement('div'); d.style.padding='8px'; d.style.border='1px solid #e2e8f0'; d.style.borderRadius='6px'; d.style.minWidth='120px'; d.innerHTML = `<div style='font-size:12px;color:#475569'>${escapeHtml(name)}</div><div style='font-weight:800;font-size:18px'>${String(teamScores[name]||0).padStart(3,'0')}</div>`; el.appendChild(d); }); }
+
+// When a team reaches 3 strikes, give the round bank to the other team (steal)
+function handleThreeStrikesSteal(){
+    const teams = currentRound && currentRound.teams ? currentRound.teams.slice() : [];
+    if(teams.length < 2){
+        // Not enough teams to steal; just reset strikes
+        strikeCount = 0; updateStrikeDisplay(); sendMessage({type:'update_strikes', payload:{count: strikeCount}}); return;
+    }
+    // Determine the other team relative to the active team
+    let otherTeam = null;
+    if(activeTeam){ otherTeam = teams.find(t=> t !== activeTeam) || null; }
+    if(!otherTeam){
+        // if no activeTeam selected, choose the first team that isn't empty
+        otherTeam = teams[0];
+        if(activeTeam === otherTeam && teams[1]) otherTeam = teams[1];
+    }
+
+    const finalPoints = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+
+    // Send a 'steal' event so the board shows the banner
+    sendMessage({type:'steal', payload:{toTeam: otherTeam || '', fromTeam: activeTeam || '', points: finalPoints}});
+
+    // Award points to the other team
+    if(otherTeam && finalPoints >= 0){
+        sendMessage({type:'assign_points', payload:{team: otherTeam, points: finalPoints}});
+        if(!(otherTeam in teamScores)) teamScores[otherTeam] = 0;
+        teamScores[otherTeam] = Number(teamScores[otherTeam]||0) + finalPoints;
+        persistTeamScores();
+        renderTeamScores();
+    }
+
+    // Reset round & strikes, clear active turn
+    strikeCount = 0; updateStrikeDisplay(); sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+    currentRound = {points:0, teams: teams, accumulatedPoints:0};
+    activeTeam = null; if(turnControls) Array.from(activeTeamButtons.children).forEach(c=> c.classList.remove('selected'));
+    sendMessage({type:'active_team', payload:{team:null}});
+    roundAssignEl.style.display = 'none';
+}
 
 // load persisted scores
 try{ const s = localStorage.getItem('game-team-scores'); if(s) teamScores = JSON.parse(s) || {}; }catch(e){}
