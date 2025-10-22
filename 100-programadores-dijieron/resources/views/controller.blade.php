@@ -223,6 +223,7 @@
         <div style="margin-top:8px">
             <button id="startRound">Iniciar ronda</button>
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
+            <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
             <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
@@ -234,6 +235,14 @@
         <div id="roundAssign" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f1f5f9">
             <div id="roundReadyText" style="font-weight:700;color:#0b1220;margin-bottom:6px">La ronda terminó. ¿Qué familia gana los puntos?</div>
             <div id="roundTeamButtons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+        <div id="stealAttempt" style="display:none;margin-top:8px;padding:12px;border-radius:6px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3)">
+            <div style="font-weight:700;color:#0b1220;margin-bottom:8px">🎯 Robo de puntos: <span id="stealTeamName" style="color:#ef4444"></span> tiene oportunidad de responder</div>
+            <div style="font-size:13px;color:#6b7280;margin-bottom:10px">⚠️ Primero revela la respuesta que dieron. Si es correcta, dale en "Acertó".</div>
+            <div style="display:flex;gap:8px">
+                <button id="stealSuccess" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%)">✓ Acertó</button>
+                <button id="stealFail" style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%)">✗ Falló</button>
+            </div>
         </div>
         <div id="teamScoresDisplay" style="margin-top:10px;display:flex;gap:8px"></div>
     </section>
@@ -401,10 +410,15 @@ const teamsInput = document.getElementById('teamsInput');
 const teamsValidation = document.getElementById('teamsValidation');
 const startRoundBtn = document.getElementById('startRound');
 const nextRoundBtn = document.getElementById('nextRound');
+const finishRoundBtn = document.getElementById('finishRound');
 const roundAssignEl = document.getElementById('roundAssign');
 const roundTeamButtons = document.getElementById('roundTeamButtons');
 const turnControls = document.getElementById('turnControls');
 const activeTeamButtons = document.getElementById('activeTeamButtons');
+const stealAttemptEl = document.getElementById('stealAttempt');
+const stealTeamNameEl = document.getElementById('stealTeamName');
+const stealSuccessBtn = document.getElementById('stealSuccess');
+const stealFailBtn = document.getElementById('stealFail');
 
 // live validation for teams
 teamsInput.addEventListener('input', ()=>{
@@ -453,6 +467,41 @@ nextRoundBtn.addEventListener('click', ()=>{
     }
     roundNumber++;
     runRound(teamNames, /*keepScores*/ true);
+});
+
+// Finish round - reveal all unrevealed answers without adding points
+finishRoundBtn.addEventListener('click', ()=>{
+    if(!currentRound || !Array.isArray(currentRound.answers)) {
+        alert('⚠️ No hay ronda activa');
+        return;
+    }
+    
+    // Hide steal attempt UI if active
+    if(stealAttemptEl && stealAttemptEl.style.display !== 'none') {
+        console.log('⚠️ Cancelando robo de puntos activo');
+        stealAttemptEl.style.display = 'none';
+    }
+    
+    // Check if there are any unrevealed answers
+    const unrevealedAnswers = currentRound.answers.filter(ans => !ans.revealed);
+    if(unrevealedAnswers.length === 0) {
+        alert('⚠️ Todas las respuestas ya están reveladas');
+        return;
+    }
+    
+    console.log('🏁 Finalizando ronda - revelando', unrevealedAnswers.length, 'respuestas');
+    
+    // Reveal all unrevealed answers WITHOUT adding to accumulated points
+    unrevealedAnswers.forEach((ans) => {
+        ans.revealed = true;
+        console.log('Revelando:', ans.text, '-', ans.count, 'puntos');
+    });
+    
+    // Update UI and send to board
+    render();
+    sendMessage({type:'state', payload:{question, answers: currentRound.answers}});
+    
+    console.log('✅ Todas las respuestas reveladas. Puntos acumulados:', currentRound.accumulatedPoints || 0);
 });
 
 // Common routine to transition to a new round
@@ -650,6 +699,7 @@ document.getElementById('reset').addEventListener('click', () => {
     const roundAssignEl = document.getElementById('roundAssign');
     if(roundAssignEl) roundAssignEl.style.display = 'none';
     if(turnControls) turnControls.style.display = 'none';
+    if(stealAttemptEl) stealAttemptEl.style.display = 'none';
     // Clear active team highlight on board
     sendMessage({type:'active_team', payload:{team:null}});
 });
@@ -785,7 +835,7 @@ function persistTeamScores(){ try{ localStorage.setItem('game-team-scores', JSON
 function renderTeamScores(){ const el = document.getElementById('teamScoresDisplay'); if(!el) return; el.innerHTML = '';
     Object.keys(teamScores).forEach(name=>{ const d = document.createElement('div'); d.style.padding='8px'; d.style.border='1px solid #e2e8f0'; d.style.borderRadius='6px'; d.style.minWidth='120px'; d.innerHTML = `<div style='font-size:12px;color:#475569'>${escapeHtml(name)}</div><div style='font-weight:800;font-size:18px'>${String(teamScores[name]||0).padStart(3,'0')}</div>`; el.appendChild(d); }); }
 
-// When a team reaches 3 strikes, give the round bank to the other team (steal)
+// When a team reaches 3 strikes, show steal attempt UI
 function handleThreeStrikesSteal(){
     const teams = currentRound && currentRound.teams ? currentRound.teams.slice() : [];
     if(teams.length < 2){
@@ -806,21 +856,106 @@ function handleThreeStrikesSteal(){
     // Send a 'steal' event so the board shows the banner
     sendMessage({type:'steal', payload:{toTeam: otherTeam || '', fromTeam: activeTeam || '', points: finalPoints}});
 
-    // Award points to the other team
-    if(otherTeam && finalPoints >= 0){
-        sendMessage({type:'assign_points', payload:{team: otherTeam, points: finalPoints}});
-        if(!(otherTeam in teamScores)) teamScores[otherTeam] = 0;
-        teamScores[otherTeam] = Number(teamScores[otherTeam]||0) + finalPoints;
-        persistTeamScores();
-        renderTeamScores();
+    // Show steal attempt UI instead of auto-assigning
+    if(stealAttemptEl && stealTeamNameEl){
+        stealTeamNameEl.textContent = otherTeam || '';
+        stealAttemptEl.style.display = 'block';
+        
+        // Store steal context for button handlers
+        stealAttemptEl.dataset.stealTeam = otherTeam || '';
+        stealAttemptEl.dataset.originalTeam = activeTeam || '';
+        stealAttemptEl.dataset.points = String(finalPoints);
     }
+}
 
+// Steal attempt button handlers
+if(stealSuccessBtn){
+    stealSuccessBtn.addEventListener('click', ()=>{
+        const stealTeam = stealAttemptEl.dataset.stealTeam;
+        
+        // Get CURRENT accumulated points (including any answers revealed during steal)
+        const points = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        
+        // Check if there are any unrevealed answers
+        if(currentRound && Array.isArray(currentRound.answers) && currentRound.answers.length > 0){
+            const hasUnrevealedAnswer = currentRound.answers.some(ans => !ans.revealed);
+            if (!hasUnrevealedAnswer) {
+                alert('⚠️ No hay respuestas sin revelar. El equipo no puede acertar el robo.');
+                return;
+            }
+        }
+        
+        console.log('💰 Robo exitoso! Asignando', points, 'puntos a', stealTeam);
+        
+        // Award points to the team that stole
+        if(stealTeam && points >= 0){
+            sendMessage({type:'assign_points', payload:{team: stealTeam, points: points}});
+            if(!(stealTeam in teamScores)) teamScores[stealTeam] = 0;
+            teamScores[stealTeam] = Number(teamScores[stealTeam]||0) + points;
+            persistTeamScores();
+            renderTeamScores();
+        }
+        
+        // Reset and hide
+        finishStealAttempt();
+    });
+}
+
+if(stealFailBtn){
+    stealFailBtn.addEventListener('click', ()=>{
+        const originalTeam = stealAttemptEl.dataset.originalTeam;
+        
+        console.log('❌ Robo fallido! Revelando todas las respuestas restantes...');
+        
+        // Reveal all unrevealed answers automatically
+        if(currentRound && Array.isArray(currentRound.answers)) {
+            const unrevealedAnswers = currentRound.answers.filter(ans => !ans.revealed);
+            if(unrevealedAnswers.length > 0) {
+                console.log('📋 Revelando', unrevealedAnswers.length, 'respuestas restantes');
+                unrevealedAnswers.forEach((ans) => {
+                    ans.revealed = true;
+                    console.log('  -', ans.text, ':', ans.count, 'puntos');
+                });
+                
+                // Update UI and send to board
+                render();
+                sendMessage({type:'state', payload:{question, answers: currentRound.answers}});
+            }
+        }
+        
+        // Get CURRENT accumulated points (including any answers revealed during steal)
+        const points = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        
+        console.log('💰 Asignando', points, 'puntos al equipo original:', originalTeam);
+        
+        // Award points to the original team (the one that had control)
+        if(originalTeam && points >= 0){
+            sendMessage({type:'assign_points', payload:{team: originalTeam, points: points}});
+            if(!(originalTeam in teamScores)) teamScores[originalTeam] = 0;
+            teamScores[originalTeam] = Number(teamScores[originalTeam]||0) + points;
+            persistTeamScores();
+            renderTeamScores();
+        }
+        
+        // Reset and hide
+        finishStealAttempt();
+    });
+}
+
+function finishStealAttempt(){
+    // Hide steal UI
+    if(stealAttemptEl) stealAttemptEl.style.display = 'none';
+    
     // Reset round & strikes, clear active turn
-    strikeCount = 0; updateStrikeDisplay(); sendMessage({type:'update_strikes', payload:{count: strikeCount}});
-    currentRound = {points:0, teams: teams, accumulatedPoints:0};
-    activeTeam = null; if(turnControls) Array.from(activeTeamButtons.children).forEach(c=> c.classList.remove('selected'));
+    const teams = currentRound && currentRound.teams ? currentRound.teams.slice() : [];
+    strikeCount = 0; 
+    updateStrikeDisplay(); 
+    sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+    currentRound = {points:0, teams: teams, accumulatedPoints:0, roundNumber: currentRound.roundNumber};
+    activeTeam = null; 
+    if(turnControls && activeTeamButtons) Array.from(activeTeamButtons.children).forEach(c=> c.classList.remove('selected'));
     sendMessage({type:'active_team', payload:{team:null}});
-    roundAssignEl.style.display = 'none';
+    if(roundAssignEl) roundAssignEl.style.display = 'none';
 }
 
 // load persisted scores
