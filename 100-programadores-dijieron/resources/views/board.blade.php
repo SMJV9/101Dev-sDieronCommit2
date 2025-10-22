@@ -247,7 +247,14 @@ function renderTeamScores(){
 
 function appendLog(txt){}
 
-function handleIncoming(msg){ if(!msg || !msg.type) return;
+function handleIncoming(msg){ 
+    console.log('[board] =====> Mensaje recibido:', msg);
+    if(!msg || !msg.type) {
+        console.log('[board] Mensaje inválido (sin type)');
+        return;
+    }
+    console.log('[board] Procesando tipo:', msg.type);
+    
     if(msg.type === 'init'){
         answers = (msg.payload.answers||[]).map(a=>({...a}));
         stateEl.textContent = msg.payload.state || 'Listo';
@@ -313,12 +320,16 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
         }
     } else if(msg.type === 'reset_all'){
         // Complete reset of everything
-        console.log('[board] Recibiendo reset_all');
+        console.log('[board] ===== RESET ALL INICIADO =====');
+        console.log('[board] strikeCount ANTES:', strikeCount);
+        
         answers = [];
         teamScores = {};
         currentRound = {points:0, teams:[], accumulatedPoints:0};
         strikeCount = 0;
         roundReadySent = false;
+        
+        console.log('[board] strikeCount DESPUÉS:', strikeCount);
         
         // Clear localStorage
         localStorage.removeItem('game-team-scores');
@@ -334,21 +345,33 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
         
         // Force clear team scores display
         const teamScoresEl = document.getElementById('teamScores');
-        if(teamScoresEl) teamScoresEl.innerHTML = '';
+        console.log('[board] teamScoresEl existe?', !!teamScoresEl);
+        if(teamScoresEl) {
+            teamScoresEl.innerHTML = '';
+            console.log('[board] teamScores limpiado');
+        }
         
-        // Force clear strikes display
+        // Force clear strikes display - MÉTODO 1: innerHTML
         const strikesDisplayEl = document.getElementById('strikesDisplay');
-        console.log('[board] Limpiando strikes, strikeCount:', strikeCount);
+        console.log('[board] strikesDisplayEl existe?', !!strikesDisplayEl);
         if(strikesDisplayEl) {
+            console.log('[board] Contenido ANTES de limpiar:', strikesDisplayEl.innerHTML);
             strikesDisplayEl.innerHTML = '';
-            console.log('[board] innerHTML de strikes limpiado');
+            console.log('[board] Contenido DESPUÉS de limpiar:', strikesDisplayEl.innerHTML);
+            
+            // MÉTODO 2: Remover todos los hijos uno por uno (por si innerHTML no funciona)
+            while(strikesDisplayEl.firstChild) {
+                strikesDisplayEl.removeChild(strikesDisplayEl.firstChild);
+            }
+            console.log('[board] Hijos removidos manualmente');
         }
         
         // Reset and render
+        console.log('[board] Llamando renderStrikes()');
         renderStrikes();
         renderTeamScores();
         render();
-        console.log('[board] Reset completado, strikeCount final:', strikeCount);
+        console.log('[board] ===== RESET ALL COMPLETADO =====');
     }
 }
 

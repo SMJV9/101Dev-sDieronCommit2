@@ -280,6 +280,16 @@ let answers = [];
 let teamScores = {}; // persisted per browser
 let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let strikeCount = 0; // Counter for X's (wrong answers)
+let autoResendTimer = null;
+
+// auto-resend when answers change, to help boards that miss initial message
+function scheduleAutoResend(){ 
+    if(autoResendTimer) clearTimeout(autoResendTimer); 
+    autoResendTimer = setTimeout(()=>{ 
+        const payload = {answers, state:stateEl.textContent, question:questionEl.value}; 
+        sendMessage({type:'init', payload}); 
+    }, 800); 
+}
 
 function render() {
     answersEl.innerHTML = '';
@@ -514,8 +524,14 @@ document.getElementById('reset').addEventListener('click', () => {
     render();
     
     // Send comprehensive reset to board
+    console.log('[controller] ===== RESET CLICKED =====');
+    console.log('[controller] usingBroadcast:', usingBroadcast);
+    console.log('[controller] channel:', channel);
     console.log('[controller] Enviando reset_all');
-    sendMessage({type:'reset_all', payload:{}});
+    const resetMsg = {type:'reset_all', payload:{}};
+    console.log('[controller] Mensaje a enviar:', resetMsg);
+    sendMessage(resetMsg);
+    console.log('[controller] Mensaje enviado');
     
     stateEl.textContent = 'Listo';
     
@@ -604,11 +620,6 @@ channel.onmessage = (ev) => {
 
     // logging disabled
     function logCtrl(text){}
-
-    // auto-resend when answers change, to help boards that miss initial message
-    let autoResendTimer = null;
-    // auto-resend when answers change, to help boards that miss initial message
-    function scheduleAutoResend(){ if(autoResendTimer) clearTimeout(autoResendTimer); autoResendTimer = setTimeout(()=>{ const payload = {answers, state:stateEl.textContent, question:questionEl.value}; sendMessage({type:'init', payload}); }, 800); }
     
     // Call handleIncoming on received messages
     handleIncoming(ev.data);
