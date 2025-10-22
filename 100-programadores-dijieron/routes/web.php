@@ -1,12 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GameController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('home');
 });
-
-use App\Http\Controllers\GameController;
 
 Route::get('/tablero', [GameController::class, 'board'])->name('board');
 Route::get('/controller', [GameController::class, 'controller'])->name('controller');

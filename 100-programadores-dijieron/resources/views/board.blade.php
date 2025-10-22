@@ -1,9 +1,9 @@
 <!doctype html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tablero — Tech Edition</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1100100 Devs Dijeron — Tablero</title>
     <style>
         /* Tech / neon / glass aesthetic */
         :root{--bg:#071024;--glass:rgba(255,255,255,0.04);--accent:#00e5ff;--accent2:#7b61ff;--muted:#8aa0b1}
@@ -79,7 +79,7 @@
 
                     <div style="flex:1">
                         <div style="display:flex;justify-content:space-between;align-items:center">
-                            <div class="title">Tablero — Tech Edition</div>
+                            <div class="title">1100100 Devs Dijeron</div>
                             <div class="status">Estado: <strong id="state">Esperando</strong></div>
                         </div>
 
@@ -313,6 +313,7 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
         }
     } else if(msg.type === 'reset_all'){
         // Complete reset of everything
+        console.log('[board] Recibiendo reset_all');
         answers = [];
         teamScores = {};
         currentRound = {points:0, teams:[], accumulatedPoints:0};
@@ -331,10 +332,23 @@ function handleIncoming(msg){ if(!msg || !msg.type) return;
         const rw = document.getElementById('roundWinner'); 
         if(rw) rw.textContent = '';
         
-        // Reset strikes and team scores
+        // Force clear team scores display
+        const teamScoresEl = document.getElementById('teamScores');
+        if(teamScoresEl) teamScoresEl.innerHTML = '';
+        
+        // Force clear strikes display
+        const strikesDisplayEl = document.getElementById('strikesDisplay');
+        console.log('[board] Limpiando strikes, strikeCount:', strikeCount);
+        if(strikesDisplayEl) {
+            strikesDisplayEl.innerHTML = '';
+            console.log('[board] innerHTML de strikes limpiado');
+        }
+        
+        // Reset and render
         renderStrikes();
         renderTeamScores();
         render();
+        console.log('[board] Reset completado, strikeCount final:', strikeCount);
     }
 }
 

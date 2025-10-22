@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Controlador - 100 Prgm   Dijeron</title>
+    <title>Controller - 1100100 Devs Dijeron</title>
     <style>
         /* Modern controller design */
         :root{
@@ -191,7 +191,7 @@
 </head>
 <body>
 <header>
-    <h1>Controlador</h1>
+    <h1>1100100 Devs Dijeron - Controller</h1>
     <div>Estado: <span id="state">Listo</span></div>
 </header>
 <main>
@@ -514,6 +514,7 @@ document.getElementById('reset').addEventListener('click', () => {
     render();
     
     // Send comprehensive reset to board
+    console.log('[controller] Enviando reset_all');
     sendMessage({type:'reset_all', payload:{}});
     
     stateEl.textContent = 'Listo';
