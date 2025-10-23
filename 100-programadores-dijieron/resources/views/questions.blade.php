@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Banco de Preguntas - 1100100 Devs Dijeron</title>
     <style>
         /* Terminal / Developer aesthetic */
@@ -209,6 +210,61 @@
             padding:8px 12px;
             font-size:12px;
         }
+        
+        .btn-success{
+            background:linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color:white;
+        }
+        
+        .inactive-question{
+            opacity:0.6;
+            border-color:rgba(239,68,68,0.3);
+        }
+        
+        .badge-active{
+            display:inline-block;
+            background:rgba(16,185,129,0.2);
+            color:#10b981;
+            padding:4px 8px;
+            border-radius:4px;
+            font-size:11px;
+            font-weight:600;
+            margin-left:8px;
+        }
+        
+        .badge-inactive{
+            display:inline-block;
+            background:rgba(239,68,68,0.2);
+            color:#ef4444;
+            padding:4px 8px;
+            border-radius:4px;
+            font-size:11px;
+            font-weight:600;
+            margin-left:8px;
+        }
+        
+        .question-meta{
+            display:flex;
+            gap:12px;
+            margin-bottom:8px;
+            font-size:12px;
+        }
+        
+        .category-badge{
+            background:rgba(102,252,241,0.1);
+            color:var(--accent);
+            padding:4px 8px;
+            border-radius:4px;
+            font-weight:600;
+        }
+        
+        .usage-count{
+            color:var(--muted);
+        }
+        
+        #cancelEdit{
+            display:none;
+        }
     </style>
 </head>
 <body>
@@ -232,11 +288,16 @@
             <input type="text" id="newQuestionText" placeholder="¿Qué fruta comen más los niños?" />
         </div>
         <div style="margin-bottom:12px">
+            <label>Categoría:</label>
+            <input type="text" id="newQuestionCategory" placeholder="general, dev, tech..." value="general" />
+        </div>
+        <div style="margin-bottom:12px">
             <label>Respuestas:</label>
             <div id="newAnswersList"></div>
             <button id="addNewAnswer" class="btn-secondary" style="margin-top:8px">+ Agregar Respuesta</button>
         </div>
         <button id="saveNewQuestion">💾 Guardar Pregunta</button>
+        <button id="cancelEdit" class="btn-secondary">✖ Cancelar</button>
     </section>
 
     <!-- Lista de Preguntas Guardadas -->
@@ -254,27 +315,39 @@
 <script>
 let savedQuestionsData = {};
 let newAnswers = [];
+let editingQuestionId = null; // Track if we're editing
 
-// Load saved questions from localStorage
+// Load saved questions from DATABASE via API
 function loadSavedQuestions() {
-    try {
-        const stored = localStorage.getItem('game-saved-questions');
-        if (stored) {
-            savedQuestionsData = JSON.parse(stored);
-        }
-    } catch (e) {
-        console.error('Error loading saved questions:', e);
-    }
-    renderQuestionsList();
+    fetch('/api/questions')
+        .then(response => response.json())
+        .then(questions => {
+            savedQuestionsData = {};
+            questions.forEach(q => {
+                savedQuestionsData[q.id] = {
+                    id: q.id,
+                    name: q.name,
+                    question: q.question_text,
+                    category: q.category,
+                    is_active: q.is_active,
+                    times_used: q.times_used,
+                    answers: q.answers.map(a => ({
+                        text: a.answer_text,
+                        count: a.points
+                    }))
+                };
+            });
+            renderQuestionsList();
+        })
+        .catch(error => {
+            console.error('Error loading questions:', error);
+            alert('❌ Error al cargar las preguntas');
+        });
 }
 
-// Save questions to localStorage
+// Save questions to DATABASE via API
 function saveSavedQuestions() {
-    try {
-        localStorage.setItem('game-saved-questions', JSON.stringify(savedQuestionsData));
-    } catch (e) {
-        console.error('Error saving questions:', e);
-    }
+    // This is handled by individual API calls (store/update)
 }
 
 // Render new answers list
@@ -321,10 +394,11 @@ document.getElementById('addNewAnswer').addEventListener('click', () => {
     renderNewAnswers();
 });
 
-// Save new question
+// Save new question or update existing
 document.getElementById('saveNewQuestion').addEventListener('click', () => {
     const name = document.getElementById('newQuestionName').value.trim();
     const questionText = document.getElementById('newQuestionText').value.trim();
+    const category = document.getElementById('newQuestionCategory').value.trim() || 'general';
     
     if (!name) {
         alert('⚠️ Ingresa un nombre para la pregunta');
@@ -340,24 +414,56 @@ document.getElementById('saveNewQuestion').addEventListener('click', () => {
     }
     
     // Filter out empty answers
-    const validAnswers = newAnswers.filter(a => a.text.trim());
+    const validAnswers = newAnswers.filter(a => a.text.trim()).map(a => ({
+        text: a.text.trim(),
+        points: a.count
+    }));
     
-    savedQuestionsData[name] = {
-        question: questionText,
+    const data = {
+        name: name,
+        question_text: questionText,
+        category: category,
         answers: validAnswers
     };
     
-    saveSavedQuestions();
-    renderQuestionsList();
+    const url = editingQuestionId ? `/api/questions/${editingQuestionId}` : '/api/questions';
+    const method = editingQuestionId ? 'PUT' : 'POST';
     
-    // Clear form
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(editingQuestionId ? '✅ Pregunta actualizada: ' + name : '✅ Pregunta guardada: ' + name);
+            loadSavedQuestions();
+            clearForm();
+        } else {
+            alert('❌ Error: ' + JSON.stringify(result.error));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al guardar la pregunta');
+    });
+});
+
+// Clear form
+function clearForm() {
     document.getElementById('newQuestionName').value = '';
     document.getElementById('newQuestionText').value = '';
+    document.getElementById('newQuestionCategory').value = '';
     newAnswers = [];
+    editingQuestionId = null;
     renderNewAnswers();
-    
-    alert('✅ Pregunta guardada: ' + name);
-});
+    document.getElementById('saveNewQuestion').textContent = '💾 Guardar Pregunta';
+    document.getElementById('cancelEdit').style.display = 'none';
+}
 
 // Render questions list
 function renderQuestionsList() {
@@ -374,10 +480,10 @@ function renderQuestionsList() {
     emptyState.style.display = 'none';
     container.innerHTML = '';
     
-    keys.forEach(name => {
-        const data = savedQuestionsData[name];
+    keys.forEach(id => {
+        const data = savedQuestionsData[id];
         const card = document.createElement('div');
-        card.className = 'question-card';
+        card.className = 'question-card' + (data.is_active ? '' : ' inactive-question');
         
         let answersHtml = '';
         data.answers.forEach(ans => {
@@ -389,13 +495,26 @@ function renderQuestionsList() {
             `;
         });
         
+        const activeButton = data.is_active 
+            ? '<button class="btn-secondary" onclick="toggleActive(' + id + ')">🔒 Desactivar</button>'
+            : '<button class="btn-success" onclick="toggleActive(' + id + ')">✅ Activar</button>';
+        
         card.innerHTML = `
-            <div class="question-title">${escapeHtml(name)}</div>
+            <div class="question-title">
+                ${escapeHtml(data.name)} 
+                ${data.is_active ? '<span class="badge-active">✓ Activa</span>' : '<span class="badge-inactive">✗ Inactiva</span>'}
+            </div>
+            <div class="question-meta">
+                <span class="category-badge">${escapeHtml(data.category)}</span>
+                <span class="usage-count">Usada ${data.times_used} veces</span>
+            </div>
             <div class="question-text">${escapeHtml(data.question)}</div>
             <div class="answers-list">${answersHtml}</div>
             <div class="question-actions">
-                <button onclick="copyToController('${escapeHtml(name)}')">📋 Copiar al Controller</button>
-                <button class="btn-danger" onclick="deleteQuestion('${escapeHtml(name)}')">🗑️ Eliminar</button>
+                <button onclick="loadToController(${id})">📋 Cargar al Controller</button>
+                <button onclick="editQuestion(${id})">✏️ Editar</button>
+                ${activeButton}
+                <button class="btn-danger" onclick="deleteQuestion(${id})">🗑️ Eliminar</button>
             </div>
         `;
         
@@ -403,33 +522,106 @@ function renderQuestionsList() {
     });
 }
 
-// Copy question to controller (via localStorage)
-function copyToController(name) {
-    const data = savedQuestionsData[name];
-    if (!data) {
-        alert('⚠️ Pregunta no encontrada');
-        return;
-    }
+// Load question to controller
+function loadToController(id) {
+    fetch(`/api/questions/${id}/load`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Store in localStorage for controller to pick up
+                const controllerData = {
+                    question: result.question,
+                    answers: result.answers
+                };
+                localStorage.setItem('game-load-question', JSON.stringify(controllerData));
+                alert('✅ Pregunta cargada. Abre el Controller para usarla.');
+                // Optionally redirect to controller
+                // window.location.href = '/controller';
+            } else {
+                alert('❌ Error al cargar la pregunta');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Error al cargar la pregunta');
+        });
+}
+
+// Edit question
+function editQuestion(id) {
+    const data = savedQuestionsData[id];
+    if (!data) return;
     
-    // Store in a special key for controller to pick up
-    try {
-        localStorage.setItem('game-load-question', JSON.stringify(data));
-        alert('✅ Pregunta copiada. Abre el Controller y recarga la página para cargarla.');
-    } catch (e) {
-        alert('❌ Error al copiar: ' + e.message);
-    }
+    // Fill form with existing data
+    document.getElementById('newQuestionName').value = data.name;
+    document.getElementById('newQuestionText').value = data.question;
+    document.getElementById('newQuestionCategory').value = data.category;
+    
+    // Load answers
+    newAnswers = data.answers.map(a => ({text: a.text, count: a.count}));
+    renderNewAnswers();
+    
+    // Set editing mode
+    editingQuestionId = id;
+    document.getElementById('saveNewQuestion').textContent = '💾 Actualizar Pregunta';
+    document.getElementById('cancelEdit').style.display = 'inline-block';
+    
+    // Scroll to top
+    window.scrollTo({top: 0, behavior: 'smooth'});
+}
+
+// Cancel edit
+document.getElementById('cancelEdit').addEventListener('click', clearForm);
+
+// Toggle active status
+function toggleActive(id) {
+    fetch(`/api/questions/${id}/toggle-active`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            loadSavedQuestions();
+        } else {
+            alert('❌ Error al cambiar el estado');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al cambiar el estado');
+    });
 }
 
 // Delete question
-function deleteQuestion(name) {
-    if (!confirm('¿Eliminar la pregunta "' + name + '"?')) {
+function deleteQuestion(id) {
+    const data = savedQuestionsData[id];
+    if (!confirm('¿Eliminar la pregunta "' + data.name + '"?')) {
         return;
     }
     
-    delete savedQuestionsData[name];
-    saveSavedQuestions();
-    renderQuestionsList();
-    alert('✅ Pregunta eliminada');
+    fetch(`/api/questions/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('✅ ' + result.message);
+            loadSavedQuestions();
+        } else {
+            alert('❌ Error al eliminar');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al eliminar la pregunta');
+    });
 }
 
 // Helper to escape HTML

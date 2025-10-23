@@ -1087,6 +1087,12 @@ try{
         // Clear the temp storage
         localStorage.removeItem('game-load-question');
         alert('✅ Pregunta cargada desde el Banco de Preguntas');
+        
+        // Auto-send to board
+        const payload = {answers, state:'Pregunta cargada', question: questionEl.value};
+        console.debug('[controller] auto-sending loaded question', payload);
+        sendMessage({type:'init', payload});
+        stateEl.textContent = 'Pregunta cargada';
     }
 }catch(e){
     console.error('Error loading question from bank:', e);
