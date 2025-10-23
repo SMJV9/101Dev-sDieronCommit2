@@ -86,7 +86,8 @@
             letter-spacing:0.5px;
         }
         
-        input[type="text"], input[type="number"], select{
+        /* Dark inputs by default (also cover inputs without explicit type) */
+        input[type="text"], input[type="number"], select, input:not([type]){
             background:rgba(0,0,0,0.5);
             border:1px solid rgba(102,252,241,0.3);
             color:var(--text);
@@ -97,7 +98,7 @@
             transition:all 0.2s;
         }
         
-        input[type="text"]:focus, input[type="number"]:focus, select:focus{
+        input[type="text"]:focus, input[type="number"]:focus, select:focus, input:not([type]):focus{
             outline:none;
             border-color:var(--accent);
             box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
@@ -241,6 +242,14 @@
         .answer input{
             margin-right:8px;
         }
+        /* Read-only look for answers (no cuadro blanco) */
+        .answer input[readonly]{
+            background:rgba(0,0,0,0.2);
+            border:1px solid rgba(102,252,241,0.15);
+            color:var(--text);
+            outline:none;
+            box-shadow:none;
+        }
         
         .answer strong{
             color:var(--accent);
@@ -281,6 +290,7 @@
         <button id="resend">Reenviar estado</button>
         <button id="reset">Reset</button>
         <!-- <button id="addAnswer">Agregar respuesta</button> -->
+        <span id="syncStatus" style="margin-left:12px;font-size:12px;color:#94a3b8">Sin actividad</span>
     </section>
     
     <section style="margin-top:12px">
@@ -383,6 +393,35 @@ const API_QUESTIONS_BASE = `${window.location.origin}/api/questions`;
 // logs removed by user request
 const ctrlLogs = null;
 
+// ===== Sync status & ACK handling =====
+const syncStatusEl = document.getElementById('syncStatus');
+let lastAckId = null; let ackTimer = null;
+function setSyncStatus(state, text){
+    if(!syncStatusEl) return;
+    syncStatusEl.textContent = text || '';
+    if(state === 'ok') syncStatusEl.style.color = '#22c55e';
+    else if(state === 'sync') syncStatusEl.style.color = '#f59e0b';
+    else if(state === 'error') syncStatusEl.style.color = '#ef4444';
+    else syncStatusEl.style.color = '#94a3b8';
+}
+
+// Keep a reference to the original sender and wrap it to request ACKs
+const __rawSendMessage = sendMessage;
+sendMessage = function(msg){
+    try{
+        if(msg && typeof msg === 'object'){
+            const id = 'm-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+            msg._id = id; msg._ack = true; lastAckId = id;
+        }
+        setSyncStatus('sync', 'Sincronizando…');
+        if(ackTimer) clearTimeout(ackTimer);
+        ackTimer = setTimeout(()=> setSyncStatus('error', 'Error de conexión'), 2500);
+        return __rawSendMessage(msg);
+    }catch(e){
+        setSyncStatus('error', 'Error de conexión');
+    }
+};
+
 // ===== Dropdown: fetch and load active questions (global) =====
 async function fetchQuestionsForDropdown(){
     if(!questionDropdownEl) return;
@@ -420,13 +459,15 @@ async function loadSelectedQuestion(){
         const res = await fetch(`${API_QUESTIONS_BASE}/${id}/load`);
         const payload = await res.json();
         if(!payload || !payload.success){ alert('No se pudo cargar la pregunta'); return; }
-        questionEl.value = payload.question || '';
-        answers = (payload.answers || []).map(a => ({text:a.text, count:a.count, revealed:false, correct:false}));
+    questionEl.value = payload.question || '';
+    answers = (payload.answers || []).map(a => ({text:a.text, count:a.count, revealed:false, correct:false}));
         answers.sort((a,b)=> b.count - a.count);
         render();
         const initPayload = {answers, state:'Pregunta cargada', question: questionEl.value};
         sendMessage({type:'init', payload: initPayload});
         stateEl.textContent = 'Pregunta cargada';
+    // Mantén referencia de respuestas en la ronda actual para acciones como "finalizar ronda"
+    currentRound.answers = answers.map(a=>({...a}));
     }catch(e){
         console.error('Error loading selected question', e);
         alert('Ocurrió un error al cargar la pregunta');
@@ -469,8 +510,8 @@ function render() {
         item.innerHTML = `
                 <div style="flex:1">
                     <strong>${i+1}. </strong>
-                    <input data-idx="${i}" value="${a.text}" style="width:70%" readonly />
-                    <input data-idx-count="${i}" value="${a.count}" style="width:60px;margin-left:8px" readonly />
+                    <input type="text" data-idx="${i}" value="${a.text}" style="width:70%" readonly />
+                    <input type="number" data-idx-count="${i}" value="${a.count}" style="width:60px;margin-left:8px" readonly />
                 </div>
                 <div>
                     <button data-action="reveal" data-idx="${i}">Revelar</button>
@@ -696,37 +737,49 @@ nextRoundBtn.addEventListener('click', ()=>{
 
 // Finish round - reveal all unrevealed answers without adding points
 finishRoundBtn.addEventListener('click', ()=>{
-    if(!currentRound || !Array.isArray(currentRound.answers)) {
-        alert('⚠️ No hay ronda activa');
+    // Necesitamos una pregunta cargada (answers) para poder revelar
+    if(!answers || !Array.isArray(answers) || answers.length === 0){
+        alert('⚠️ No hay pregunta cargada');
         return;
     }
-    
+
     // Hide steal attempt UI if active
     if(stealAttemptEl && stealAttemptEl.style.display !== 'none') {
         console.log('⚠️ Cancelando robo de puntos activo');
         stealAttemptEl.style.display = 'none';
     }
     
-    // Check if there are any unrevealed answers
-    const unrevealedAnswers = currentRound.answers.filter(ans => !ans.revealed);
-    if(unrevealedAnswers.length === 0) {
+    // Indices de respuestas no reveladas (según la lista actual)
+    const unrevealedIdx = answers
+        .map((a,idx)=> (!a.revealed ? idx : -1))
+        .filter(i=> i !== -1);
+    if(unrevealedIdx.length === 0) {
         alert('⚠️ Todas las respuestas ya están reveladas');
         return;
     }
     
-    console.log('🏁 Finalizando ronda - revelando', unrevealedAnswers.length, 'respuestas');
-    
-    // Reveal all unrevealed answers WITHOUT adding to accumulated points
-    unrevealedAnswers.forEach((ans) => {
-        ans.revealed = true;
-        console.log('Revelando:', ans.text, '-', ans.count, 'puntos');
+    console.log('🏁 Finalizando ronda - revelando', unrevealedIdx.length, 'respuestas con delay');
+
+    // Revelar una por una con delay sin sumar puntos
+    unrevealedIdx.forEach((idx, order)=>{
+        setTimeout(()=>{
+            if(answers[idx]){
+                answers[idx].revealed = true;
+                // Mantener mirror en currentRound.answers si existe
+                if(currentRound && Array.isArray(currentRound.answers) && currentRound.answers[idx]){
+                    currentRound.answers[idx].revealed = true;
+                }
+                // Enviar al board la revelación individual
+                sendMessage({type:'reveal', payload:{index: idx}});
+                render();
+            }
+        }, order * 600); // 600ms entre cada revelado
     });
-    
-    // Update UI and send to board
-    render();
-    sendMessage({type:'state', payload:{question, answers: currentRound.answers}});
-    
-    console.log('✅ Todas las respuestas reveladas. Puntos acumulados:', currentRound.accumulatedPoints || 0);
+
+    // Log al finalizar toda la secuencia
+    setTimeout(()=>{
+        console.log('✅ Todas las respuestas reveladas. Puntos acumulados:', currentRound.accumulatedPoints || 0);
+    }, unrevealedIdx.length * 600 + 100);
 });
 
 // Common routine to transition to a new round
@@ -770,8 +823,24 @@ function runRound(teamNames, keepScores){
             // send empty init to board to clear questions
             sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
             
-            // announce teams and reset round points to 0 (round points accumulate automatically on aciertos)
-            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber, multiplier: pointMultiplier}});
+            // Auto-ajustar multiplicador por número de ronda (R1=x1, R2=x2, R3+=x3)
+            let desiredMultiplier = 1;
+            if(roundNumber >= 3) desiredMultiplier = 3; else if(roundNumber === 2) desiredMultiplier = 2;
+            if(pointMultiplier !== desiredMultiplier){
+                pointMultiplier = desiredMultiplier;
+                // actualizar UI de botones
+                document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
+                const btn = document.getElementById('multiplier'+pointMultiplier);
+                if(btn) btn.classList.add('active');
+                // notificar al board de inmediato
+                sendMessage({type:'multiplier', payload:{multiplier: pointMultiplier}});
+            }
+
+            // announce teams and reset round points to 0 (round points accumulate automáticamente en aciertos)
+            // Enviamos keepScores para que el tablero sepa si debe conservar o reiniciar marcadores
+            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber, multiplier: pointMultiplier, keepScores: !!keepScores}});
+            // Enviar también team_names para asegurar mapeo de nombres->puntos por lado
+            sendMessage({type:'team_names', payload:{teams: teamNames, points: 0}});
             // Make sure controller local state also knows the teams immediately (works even if storage fallback)
             currentRound.points = 0;
             currentRound.accumulatedPoints = 0;
@@ -938,6 +1007,16 @@ channel.onmessage = (ev) => {
     // centralized handler for incoming messages (from channel or storage)
     function handleIncoming(msg){
         if (!msg || !msg.type) return;
+            // handle ACKs from board
+            if (msg.type === 'ack'){
+                if(msg.id && msg.id === lastAckId){
+                    if(ackTimer) clearTimeout(ackTimer);
+                    setSyncStatus('ok', 'Enviado al tablero');
+                    // fade back to muted after a moment
+                    setTimeout(()=>{ setSyncStatus('idle',''); }, 1200);
+                }
+                return;
+            }
             if (msg.type === 'request_init') {
                 const payload = {answers, state:stateEl.textContent, question: questionEl.value};
                 console.debug('[controller] responding init', payload);

@@ -453,6 +453,12 @@ function handleIncoming(msg){
         console.log('[board] Mensaje inválido (sin type)');
         return;
     }
+    // ACK: responde a cualquier mensaje que lo solicite
+    try{
+        if(msg._ack && msg._id && msg.type !== 'ack'){
+            sendMessage({type:'ack', id: msg._id});
+        }
+    }catch(e){}
     console.log('[board] Procesando tipo:', msg.type);
     
     if(msg.type === 'init'){
@@ -514,15 +520,22 @@ function handleIncoming(msg){
         // reset strikes
         strikeCount = 0;
         renderStrikes();
-    // replace teamScores with teams sent by controller (controller is authoritative)
-    const newScores = {};
-    (currentRound.teams || []).forEach((t, idx)=>{
-        // preserve prior left/right scores by position if possible
-        const keys = Object.keys(teamScores);
-        const prior = (idx === 0) ? (keys[0] || t) : (keys[1] || t);
-        newScores[t] = Number(teamScores[prior] || 0);
-    });
-    teamScores = newScores;
+    // Replace teamScores depending on keepScores flag
+    const keep = !!(msg.payload && msg.payload.keepScores);
+    if(keep){
+        // preserve prior left/right scores by position
+        const newScores = {};
+        (currentRound.teams || []).forEach((t, idx)=>{
+            const keys = Object.keys(teamScores);
+            const prior = (idx === 0) ? (keys[0] || t) : (keys[1] || t);
+            newScores[t] = Number(teamScores[prior] || 0);
+        });
+        teamScores = newScores;
+    } else {
+        // fresh game: reset both teams to 0
+        teamScores = {};
+        (currentRound.teams || []).forEach(t=>{ teamScores[t] = 0; });
+    }
         persistTeamScores();
         renderTeamScores();
     } else if(msg.type === 'multiplier'){
@@ -539,6 +552,11 @@ function handleIncoming(msg){
             }
         }
     } else if(msg.type === 'update_round_total'){
+        // Update the live round points (without multiplier)
+        const pts = Number((msg.payload && msg.payload.points) || 0);
+        currentRound.accumulatedPoints = pts;
+        const rpd = document.getElementById('roundPointsDisplay');
+        if(rpd) rpd.textContent = String(pts);
     } else if(msg.type === 'team_names'){
         // Live rename of teams preserving scores by position
         const teams = (msg.payload && msg.payload.teams) || [];
