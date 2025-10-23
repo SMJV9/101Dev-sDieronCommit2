@@ -595,8 +595,39 @@ function validateTeams() {
     if(nextRoundBtn) nextRoundBtn.disabled = !teamsMatch;
 }
 
-team1Input.addEventListener('input', validateTeams);
-team2Input.addEventListener('input', validateTeams);
+team1Input.addEventListener('input', ()=>{
+    validateTeams();
+    broadcastTeamNamesIfReady();
+});
+team2Input.addEventListener('input', ()=>{
+    validateTeams();
+    broadcastTeamNamesIfReady();
+});
+
+function broadcastTeamNamesIfReady(){
+    const names = getTeamNames();
+    if(names.length === 2){
+        // Remap local controller scores by position to preserve points
+        const existingOrder = (currentRound && Array.isArray(currentRound.teams) && currentRound.teams.length===2)
+            ? currentRound.teams.slice()
+            : Object.keys(teamScores);
+        if(existingOrder.length === 2){
+            const old0 = existingOrder[0];
+            const old1 = existingOrder[1];
+            const new0 = names[0];
+            const new1 = names[1];
+            const newScores = {};
+            newScores[new0] = Number(teamScores[old0]||0);
+            newScores[new1] = Number(teamScores[old1]||0);
+            teamScores = newScores;
+            currentRound.teams = names.slice();
+            persistTeamScores();
+            renderTeamScores();
+        }
+        // Inform board
+        sendMessage({type:'team_names', payload:{teams: names}});
+    }
+}
 
 // Multiplier button handlers
 [multiplier1Btn, multiplier2Btn, multiplier3Btn].forEach(btn => {

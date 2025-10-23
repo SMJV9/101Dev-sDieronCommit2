@@ -196,7 +196,7 @@
                 <div style="display:flex;align-items:center;gap:18px;width:100%">
                     <!-- left score - Team 1 -->
                     <div style="flex:0 0 160px;display:flex;flex-direction:column;align-items:center">
-                        <div class="score" style="width:160px;padding:14px">
+                        <div id="team1Card" class="score team-card" style="width:160px;padding:14px">
                             <div class="num" id="team1Score">000</div>
                             <div class="lbl" id="team1Name">Equipo 1</div>
                         </div>
@@ -227,11 +227,8 @@
                         </div>
 
                         <!-- Active Team Banner -->
-                        <div id="activeTurnBanner" style="display:none;margin-top:10px;margin-bottom:10px;padding:16px;border-radius:12px;background:linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(123,97,255,0.15) 100%);border:2px solid var(--accent);text-align:center;animation:pulse 2s ease-in-out infinite">
-                            <div style="font-size:24px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 20px rgba(0,229,255,0.5)">
-                                🎮 TURNO DE: <span id="activeTurnTeam"></span>
-                            </div>
-                        </div>
+                        <!-- Active Team Banner (reemplazado por highlight en tarjetas, mantenido oculto por compatibilidad) -->
+                        <div id="activeTurnBanner" style="display:none"></div>
 
                         <!-- Strikes (X's) Display - Horizontal -->
                         <div id="strikesDisplay" style="margin-top:10px;margin-bottom:10px;display:flex;gap:15px;justify-content:center;align-items:center;flex-direction:row;">
@@ -241,7 +238,7 @@
 
                     <!-- right score - Team 2 -->
                     <div style="flex:0 0 160px;display:flex;flex-direction:column;align-items:center">
-                        <div class="score" style="width:160px;padding:14px">
+                        <div id="team2Card" class="score team-card" style="width:160px;padding:14px">
                             <div class="num" id="team2Score">000</div>
                             <div class="lbl" id="team2Name">Equipo 2</div>
                         </div>
@@ -307,6 +304,8 @@ if(usingBroadcast && channel){ channel.onmessage = (ev)=>{ handleIncoming(ev.dat
 const answersEl = document.getElementById('answers'); const stateEl = document.getElementById('state'); const questionEl = document.getElementById('question'); 
 const team1ScoreEl = document.getElementById('team1Score'); const team1NameEl = document.getElementById('team1Name');
 const team2ScoreEl = document.getElementById('team2Score'); const team2NameEl = document.getElementById('team2Name');
+const team1CardEl = document.getElementById('team1Card');
+const team2CardEl = document.getElementById('team2Card');
 let answers = [];
 let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let roundReadySent = false;
@@ -517,11 +516,35 @@ function handleIncoming(msg){
         renderStrikes();
     // replace teamScores with teams sent by controller (controller is authoritative)
     const newScores = {};
-    (currentRound.teams || []).forEach(t=>{ newScores[t] = Number(teamScores[t] || 0); });
+    (currentRound.teams || []).forEach((t, idx)=>{
+        // preserve prior left/right scores by position if possible
+        const keys = Object.keys(teamScores);
+        const prior = (idx === 0) ? (keys[0] || t) : (keys[1] || t);
+        newScores[t] = Number(teamScores[prior] || 0);
+    });
     teamScores = newScores;
         persistTeamScores();
         renderTeamScores();
     } else if(msg.type === 'update_round_total'){
+    } else if(msg.type === 'team_names'){
+        // Live rename of teams preserving scores by position
+        const teams = (msg.payload && msg.payload.teams) || [];
+        if(Array.isArray(teams) && teams.length === 2){
+            const keys = Object.keys(teamScores);
+            const leftOld = keys[0];
+            const rightOld = keys[1];
+            const newScores = {};
+            newScores[teams[0]] = Number(teamScores[leftOld] || 0);
+            newScores[teams[1]] = Number(teamScores[rightOld] || 0);
+            teamScores = newScores;
+            persistTeamScores();
+            renderTeamScores();
+            // keep highlight with the same side if active
+            if(activeTeam === leftOld) activeTeam = teams[0];
+            if(activeTeam === rightOld) activeTeam = teams[1];
+            if(team1CardEl) team1CardEl.classList.toggle('active', !!activeTeam && activeTeam === teams[0]);
+            if(team2CardEl) team2CardEl.classList.toggle('active', !!activeTeam && activeTeam === teams[1]);
+        }
         // Update accumulated round points display
         const accumulatedPts = Number((msg.payload && msg.payload.points) || 0);
         currentRound.accumulatedPoints = accumulatedPts;
@@ -535,18 +558,16 @@ function handleIncoming(msg){
         // Highlight which team is currently answering
         activeTeam = (msg.payload && msg.payload.team) ? String(msg.payload.team) : null;
         
-        // Update banner
+        // Hide legacy banner and use card highlight instead
         const banner = document.getElementById('activeTurnBanner');
-        const teamSpan = document.getElementById('activeTurnTeam');
-        if(banner && teamSpan){
-            if(activeTeam){
-                teamSpan.textContent = activeTeam;
-                banner.style.display = 'block';
-            } else {
-                banner.style.display = 'none';
-            }
-        }
-        
+        if(banner) banner.style.display = 'none';
+
+        // Toggle card highlight
+        const t1Name = team1NameEl ? team1NameEl.textContent : '';
+        const t2Name = team2NameEl ? team2NameEl.textContent : '';
+        if(team1CardEl){ team1CardEl.classList.toggle('active', !!activeTeam && activeTeam === t1Name); }
+        if(team2CardEl){ team2CardEl.classList.toggle('active', !!activeTeam && activeTeam === t2Name); }
+
         renderTeamScores();
     } else if(msg.type === 'assign_points'){
         const p = (msg.payload && Number(msg.payload.points)) || 0;
@@ -589,8 +610,11 @@ function handleIncoming(msg){
         if(team2NameEl) team2NameEl.textContent = 'Equipo 2';
         if(team2ScoreEl) team2ScoreEl.textContent = '000';
         // Hide active turn banner
-        const banner = document.getElementById('activeTurnBanner');
-        if(banner) banner.style.display = 'none';
+    const banner = document.getElementById('activeTurnBanner');
+    if(banner) banner.style.display = 'none';
+    // Remove card highlights
+    if(team1CardEl) team1CardEl.classList.remove('active');
+    if(team2CardEl) team2CardEl.classList.remove('active');
         
         // Force clear team scores display
         const teamScoresEl = document.getElementById('teamScores');
