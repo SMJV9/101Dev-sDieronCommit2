@@ -5,36 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Controller - 1100100 Devs Dijeron</title>
     <style>
-        /* Modern controller design */
+        /* Terminal / Developer aesthetic */
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700;900&display=swap');
+        
         :root{
-            --bg-dark:#0a0e27;
-            --bg-card:#131829;
-            --accent:#00d9ff;
-            --accent-hover:#00b8d9;
+            --bg:#0b0c10;
+            --bg-dark:#000000;
+            --glass:rgba(102,252,241,0.03);
+            --accent:#66fcf1;
+            --accent2:#45a29e;
+            --text:#c5c6c7;
+            --muted:#7a8084;
             --success:#10b981;
             --danger:#ef4444;
-            --text-light:#e2e8f0;
-            --text-muted:#94a3b8;
-            --border:#1e293b;
         }
         
         *{box-sizing:border-box;margin:0;padding:0}
         
         body{
-            font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Arial;
-            background:linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
-            color:var(--text-light);
+            font-family:'Fira Code', monospace;
+            background:linear-gradient(180deg, #000000 0%, #0b0c10 40%, #1f2833 100%);
+            color:var(--text);
             min-height:100vh;
             padding:20px;
         }
         
         header{
-            background:var(--bg-card);
+            background:rgba(11,12,16,0.85);
             padding:20px 30px;
-            border-radius:12px;
+            border-radius:8px;
             margin-bottom:24px;
-            box-shadow:0 4px 24px rgba(0,0,0,0.4);
-            border:1px solid var(--border);
+            backdrop-filter: blur(10px);
+            box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+            border:1px solid rgba(102,252,241,0.2);
             display:flex;
             justify-content:space-between;
             align-items:center;
@@ -42,23 +45,26 @@
         
         h1{
             font-size:28px;
-            font-weight:800;
+            font-weight:900;
             color:var(--accent);
-            letter-spacing:0.5px;
+            letter-spacing:1px;
+            text-shadow:0 0 20px rgba(102,252,241,0.6), 0 0 40px rgba(102,252,241,0.3);
         }
         
         #state{
             color:var(--success);
             font-weight:600;
+            text-shadow:0 0 10px rgba(16,185,129,0.5);
         }
         
         section{
-            background:var(--bg-card);
+            background:rgba(11,12,16,0.85);
             padding:20px;
-            border-radius:12px;
+            border-radius:8px;
             margin-bottom:20px;
-            box-shadow:0 4px 24px rgba(0,0,0,0.4);
-            border:1px solid var(--border);
+            backdrop-filter: blur(10px);
+            box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+            border:1px solid rgba(102,252,241,0.2);
         }
         
         h3{
@@ -66,11 +72,12 @@
             margin-bottom:16px;
             font-size:18px;
             font-weight:700;
+            text-shadow:0 0 15px rgba(102,252,241,0.4);
         }
         
         label{
             display:inline-block;
-            color:var(--text-muted);
+            color:var(--muted);
             font-size:13px;
             font-weight:600;
             margin-bottom:6px;
@@ -79,38 +86,40 @@
         }
         
         input[type="text"], input[type="number"], select{
-            background:rgba(255,255,255,0.05);
-            border:1px solid var(--border);
-            color:var(--text-light);
+            background:rgba(0,0,0,0.5);
+            border:1px solid rgba(102,252,241,0.3);
+            color:var(--text);
             padding:10px 14px;
-            border-radius:8px;
+            border-radius:6px;
             font-size:14px;
+            font-family:'Fira Code', monospace;
             transition:all 0.2s;
         }
         
         input[type="text"]:focus, input[type="number"]:focus, select:focus{
             outline:none;
             border-color:var(--accent);
-            box-shadow:0 0 0 3px rgba(0,217,255,0.1);
+            box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
         }
         
         button{
-            background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
-            color:#fff;
+            background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            color:#0b0c10;
             border:none;
             padding:8px 16px;
             border-radius:6px;
-            font-weight:600;
+            font-weight:700;
             font-size:13px;
             cursor:pointer;
             transition:all 0.2s;
             margin-left:8px;
-            box-shadow:0 2px 8px rgba(0,217,255,0.3);
+            box-shadow:0 0 15px rgba(102,252,241,0.3);
+            font-family:'Fira Code', monospace;
         }
         
         button:hover{
             transform:translateY(-2px);
-            box-shadow:0 4px 12px rgba(0,217,255,0.4);
+            box-shadow:0 0 25px rgba(102,252,241,0.5);
         }
         
         button:active{
@@ -118,7 +127,7 @@
         }
         
         button:disabled{
-            background:linear-gradient(135deg, #334155 0%, #1e293b 100%);
+            background:rgba(122,128,132,0.3);
             cursor:not-allowed;
             opacity:0.5;
             box-shadow:none;
@@ -126,9 +135,9 @@
 
         /* Multiplier buttons */
         .multiplier-btn{
-            background:rgba(255,255,255,0.05);
-            border:2px solid rgba(0,217,255,0.3);
-            color:#94a3b8;
+            background:rgba(0,0,0,0.5);
+            border:2px solid rgba(102,252,241,0.3);
+            color:var(--text);
             padding:8px 16px;
             border-radius:8px;
             font-weight:700;
@@ -142,20 +151,35 @@
         .multiplier-btn:hover{
             border-color:var(--accent);
             color:var(--accent);
+            box-shadow:0 0 15px rgba(102,252,241,0.2);
             transform:translateY(0);
         }
         
         .multiplier-btn.active{
-            background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
+            background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
             border-color:var(--accent);
-            color:white;
-            box-shadow:0 0 0 3px rgba(0,217,255,0.2);
+            color:#0b0c10;
+            box-shadow:0 0 20px rgba(102,252,241,0.4);
         }
 
         /* Active team selector styling */
         #turnControls{margin-top:10px}
-        .active-team-btn{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#e2e8f0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
-        .active-team-btn.selected{background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%); box-shadow:0 0 0 2px rgba(0,217,255,0.4);}
+        .active-team-btn{
+            background:rgba(0,0,0,0.5);
+            border:1px solid rgba(102,252,241,0.3);
+            color:var(--text);
+            padding:8px 12px;
+            border-radius:8px;
+            cursor:pointer;
+            font-weight:700;
+            font-family:'Fira Code', monospace;
+        }
+        .active-team-btn.selected{
+            background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            border-color:var(--accent);
+            color:#0b0c10;
+            box-shadow:0 0 20px rgba(102,252,241,0.4);
+        }
         
         #roundAssign{
             background:rgba(16,185,129,0.1);
@@ -164,7 +188,7 @@
         
         #roundAssign button{
             background:linear-gradient(135deg, var(--success) 0%, #059669 100%);
-            box-shadow:0 2px 8px rgba(16,185,129,0.3);
+            box-shadow:0 0 15px rgba(16,185,129,0.3);
         }
         
         #teamScoresDisplay{
@@ -174,12 +198,13 @@
         }
         
         #teamScoresDisplay > div{
-            background:rgba(0,217,255,0.05);
-            border:1px solid rgba(0,217,255,0.2);
+            background:rgba(0,0,0,0.5);
+            border:1px solid rgba(102,252,241,0.3);
             padding:16px;
-            border-radius:10px;
+            border-radius:8px;
             min-width:140px;
             text-align:center;
+            box-shadow:0 0 20px rgba(102,252,241,0.1);
         }
         
         .answers{
@@ -194,15 +219,16 @@
             justify-content:space-between;
             align-items:center;
             padding:16px;
-            border-radius:10px;
-            background:rgba(255,255,255,0.03);
-            border:1px solid var(--border);
+            border-radius:8px;
+            background:rgba(0,0,0,0.5);
+            border:1px solid rgba(102,252,241,0.2);
             transition:all 0.2s;
         }
         
         .answer:hover{
-            background:rgba(255,255,255,0.05);
-            border-color:rgba(0,217,255,0.3);
+            background:rgba(0,0,0,0.7);
+            border-color:rgba(102,252,241,0.4);
+            box-shadow:0 0 15px rgba(102,252,241,0.1);
         }
         
         .answer.answer-correct{
@@ -219,6 +245,7 @@
             color:var(--accent);
             margin-right:12px;
             font-size:15px;
+            text-shadow:0 0 10px rgba(102,252,241,0.3);
         }
     </style>
 </head>
@@ -245,9 +272,17 @@
     
     <section style="margin-top:12px">
         <h3>Ronda</h3>
-        <label>Equipos (separados por coma):</label>
-        <input id="teamsInput" placeholder="Equipo 1,Equipo 2" style="width:320px;margin-left:8px" />
-        <span id="teamsValidation" style="margin-left:10px;color:#ef4444;font-weight:600;display:none">Ingresa al menos dos equipos</span>
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+            <div style="flex:1">
+                <label>Equipo 1:</label>
+                <input id="team1Input" placeholder="Nombre del Equipo 1" style="width:100%;margin-top:4px" value="Equipo 1" />
+            </div>
+            <div style="flex:1">
+                <label>Equipo 2:</label>
+                <input id="team2Input" placeholder="Nombre del Equipo 2" style="width:100%;margin-top:4px" value="Equipo 2" />
+            </div>
+        </div>
+        <span id="teamsValidation" style="color:#ef4444;font-weight:600;display:none">Ingresa el nombre de ambos equipos</span>
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <label style="font-weight:600">Multiplicador:</label>
             <button id="multiplier1" class="multiplier-btn active" data-multiplier="1">x1</button>
@@ -441,7 +476,8 @@ document.getElementById('addAnswer').addEventListener('click', ()=>{
 });
 
 // round controls
-const teamsInput = document.getElementById('teamsInput');
+const team1Input = document.getElementById('team1Input');
+const team2Input = document.getElementById('team2Input');
 const teamsValidation = document.getElementById('teamsValidation');
 const startRoundBtn = document.getElementById('startRound');
 const nextRoundBtn = document.getElementById('nextRound');
@@ -458,22 +494,30 @@ const multiplier1Btn = document.getElementById('multiplier1');
 const multiplier2Btn = document.getElementById('multiplier2');
 const multiplier3Btn = document.getElementById('multiplier3');
 
+// Helper function to get team names from inputs
+function getTeamNames() {
+    const name1 = (team1Input.value || '').trim();
+    const name2 = (team2Input.value || '').trim();
+    return name1 && name2 ? [name1, name2] : [];
+}
+
 // live validation for teams
-teamsInput.addEventListener('input', ()=>{
-    const names = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-    const valid = names.length >= 2;
+function validateTeams() {
+    const teamNames = getTeamNames();
+    const valid = teamNames.length === 2;
     if(teamsValidation) {
-        teamsValidation.textContent = valid ? 'Ingresa al menos dos equipos' : 'Ingresa al menos dos equipos';
         teamsValidation.style.display = valid ? 'none' : 'inline-block';
     }
     // Enable/disable 'Siguiente ronda' based on whether input matches current teams
-    const parsed = Array.from(new Set(names)).slice(0,2);
     const currentTeams = (currentRound && Array.isArray(currentRound.teams)) ? currentRound.teams : [];
-    const teamsMatch = parsed.length === 2 && currentTeams.length === 2 && 
-                       parsed.every(t => currentTeams.includes(t)) && 
-                       currentTeams.every(t => parsed.includes(t));
+    const teamsMatch = teamNames.length === 2 && currentTeams.length === 2 && 
+                       teamNames.every(t => currentTeams.includes(t)) && 
+                       currentTeams.every(t => teamNames.includes(t));
     if(nextRoundBtn) nextRoundBtn.disabled = !teamsMatch;
-});
+}
+
+team1Input.addEventListener('input', validateTeams);
+team2Input.addEventListener('input', validateTeams);
 
 // Multiplier button handlers
 [multiplier1Btn, multiplier2Btn, multiplier3Btn].forEach(btn => {
@@ -491,14 +535,15 @@ teamsInput.addEventListener('input', ()=>{
 });
 
 startRoundBtn.addEventListener('click', ()=>{
-    // Parse, dedupe and LIMIT to exactly 2 teams
-    const parsed = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-    const teamNames = Array.from(new Set(parsed)).slice(0,2);
+    const teamNames = getTeamNames();
     if(teamNames.length !== 2){
-        if(teamsValidation){ teamsValidation.textContent = 'Ingresa exactamente dos equipos'; teamsValidation.style.display = 'inline-block'; }
+        if(teamsValidation){ 
+            teamsValidation.textContent = 'Ingresa el nombre de ambos equipos'; 
+            teamsValidation.style.display = 'inline-block'; 
+        }
         return;
     } else {
-        if(teamsValidation){ teamsValidation.textContent = 'Ingresa al menos dos equipos'; teamsValidation.style.display = 'none'; }
+        if(teamsValidation){ teamsValidation.style.display = 'none'; }
     }
     // New game round: reset scoreboard for these 2 teams
     roundNumber = 1;
@@ -511,11 +556,13 @@ nextRoundBtn.addEventListener('click', ()=>{
     if(currentRound && Array.isArray(currentRound.teams) && currentRound.teams.length === 2){
         teamNames = currentRound.teams.slice(0,2);
     } else {
-        const parsed = (teamsInput.value||'').split(',').map(s=>s.trim()).filter(Boolean);
-        teamNames = Array.from(new Set(parsed)).slice(0,2);
+        teamNames = getTeamNames();
     }
     if(teamNames.length !== 2){
-        if(teamsValidation){ teamsValidation.textContent = 'Ingresa exactamente dos equipos'; teamsValidation.style.display = 'inline-block'; }
+        if(teamsValidation){ 
+            teamsValidation.textContent = 'Ingresa el nombre de ambos equipos'; 
+            teamsValidation.style.display = 'inline-block'; 
+        }
         return;
     }
     roundNumber++;
