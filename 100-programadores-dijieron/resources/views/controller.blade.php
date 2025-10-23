@@ -469,8 +469,8 @@ function render() {
         item.innerHTML = `
                 <div style="flex:1">
                     <strong>${i+1}. </strong>
-                    <input data-idx="${i}" value="${a.text}" style="width:70%" />
-                    <input data-idx-count="${i}" value="${a.count}" style="width:60px;margin-left:8px" />
+                    <input data-idx="${i}" value="${a.text}" style="width:70%" readonly />
+                    <input data-idx-count="${i}" value="${a.count}" style="width:60px;margin-left:8px" readonly />
                 </div>
                 <div>
                     <button data-action="reveal" data-idx="${i}">Revelar</button>
@@ -630,7 +630,7 @@ function broadcastTeamNamesIfReady(){
 }
 
 // Multiplier button handlers
-[multiplier1Btn, multiplier2Btn, multiplier3Btn].forEach(btn => {
+    [multiplier1Btn, multiplier2Btn, multiplier3Btn].forEach(btn => {
     if(btn) {
         btn.addEventListener('click', () => {
             // Remove active from all
@@ -640,6 +640,21 @@ function broadcastTeamNamesIfReady(){
             // Update multiplier value
             pointMultiplier = parseInt(btn.dataset.multiplier);
             console.log('🎯 Multiplicador cambiado a:', pointMultiplier + 'x');
+            // Broadcast live multiplier change so the Board updates its banner immediately
+            try{
+                sendMessage({ type:'multiplier', payload:{ multiplier: pointMultiplier } });
+            }catch(e){ console.debug('No se pudo enviar cambio de multiplicador', e); }
+
+            // If the assignment panel is visible, update the text with the new multiplier
+            try{
+                if(roundAssignEl && roundAssignEl.style.display !== 'none' && currentRound){
+                    const base = Number(currentRound.accumulatedPoints || 0);
+                    const finalPts = base * pointMultiplier;
+                    const readyText = document.getElementById('roundReadyText');
+                    const multTxt = pointMultiplier > 1 ? ` (x${pointMultiplier})` : '';
+                    if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPts} puntos${multTxt} a:`;
+                }
+            }catch(e){ console.debug('No se pudo actualizar el texto de asignación', e); }
         });
     }
 });

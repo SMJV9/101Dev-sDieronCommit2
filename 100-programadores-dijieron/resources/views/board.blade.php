@@ -525,6 +525,19 @@ function handleIncoming(msg){
     teamScores = newScores;
         persistTeamScores();
         renderTeamScores();
+    } else if(msg.type === 'multiplier'){
+        // Live update of multiplier banner during an active round
+        const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+        const multiplierEl = document.getElementById('multiplierDisplay');
+        if(multiplierEl){
+            if(multiplier > 1){
+                multiplierEl.textContent = `🔥 x${multiplier} ${multiplier === 2 ? 'DOBLE' : 'TRIPLE'}`;
+                multiplierEl.style.display = 'inline';
+            } else {
+                multiplierEl.textContent = '';
+                multiplierEl.style.display = 'none';
+            }
+        }
     } else if(msg.type === 'update_round_total'){
     } else if(msg.type === 'team_names'){
         // Live rename of teams preserving scores by position
