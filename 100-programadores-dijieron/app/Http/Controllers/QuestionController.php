@@ -44,8 +44,11 @@ class QuestionController extends Controller
             'is_active' => true,
         ]);
 
+        // Ordenar respuestas por puntos de mayor a menor
+        $sortedAnswers = collect($request->answers)->sortByDesc('points')->values();
+
         // Crear las respuestas
-        foreach ($request->answers as $index => $answerData) {
+        foreach ($sortedAnswers as $index => $answerData) {
             Answer::create([
                 'question_id' => $question->id,
                 'answer_text' => $answerData['text'],
@@ -112,8 +115,11 @@ class QuestionController extends Controller
         // Eliminar respuestas anteriores
         $question->answers()->delete();
 
+        // Ordenar respuestas por puntos de mayor a menor
+        $sortedAnswers = collect($request->answers)->sortByDesc('points')->values();
+
         // Crear las nuevas respuestas
-        foreach ($request->answers as $index => $answerData) {
+        foreach ($sortedAnswers as $index => $answerData) {
             Answer::create([
                 'question_id' => $question->id,
                 'answer_text' => $answerData['text'],

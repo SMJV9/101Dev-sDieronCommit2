@@ -80,7 +80,7 @@
             letter-spacing:0.5px;
         }
         
-        input[type="text"], input[type="number"]{
+        input[type="text"], input[type="number"], select{
             background:rgba(0,0,0,0.5);
             border:1px solid rgba(102,252,241,0.3);
             color:var(--text);
@@ -90,9 +90,16 @@
             font-family:'Fira Code', monospace;
             transition:all 0.2s;
             width:100%;
+            cursor:pointer;
         }
         
-        input[type="text"]:focus, input[type="number"]:focus{
+        select option{
+            background:#0b0c10;
+            color:var(--text);
+            padding:10px;
+        }
+        
+        input[type="text"]:focus, input[type="number"]:focus, select:focus{
             outline:none;
             border-color:var(--accent);
             box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
@@ -289,7 +296,10 @@
         </div>
         <div style="margin-bottom:12px">
             <label>Categoría:</label>
-            <input type="text" id="newQuestionCategory" placeholder="general, dev, tech..." value="general" />
+            <select id="newQuestionCategory" style="width:100%">
+                <option value="general">General</option>
+                <option value="dev">Desarrollo/Programación</option>
+            </select>
         </div>
         <div style="margin-bottom:12px">
             <label>Respuestas:</label>
@@ -398,7 +408,7 @@ document.getElementById('addNewAnswer').addEventListener('click', () => {
 document.getElementById('saveNewQuestion').addEventListener('click', () => {
     const name = document.getElementById('newQuestionName').value.trim();
     const questionText = document.getElementById('newQuestionText').value.trim();
-    const category = document.getElementById('newQuestionCategory').value.trim() || 'general';
+    const category = document.getElementById('newQuestionCategory').value; // Ya es el value del select
     
     if (!name) {
         alert('⚠️ Ingresa un nombre para la pregunta');
@@ -413,11 +423,14 @@ document.getElementById('saveNewQuestion').addEventListener('click', () => {
         return;
     }
     
-    // Filter out empty answers
-    const validAnswers = newAnswers.filter(a => a.text.trim()).map(a => ({
-        text: a.text.trim(),
-        points: a.count
-    }));
+    // Filter out empty answers and sort by points (descending)
+    const validAnswers = newAnswers
+        .filter(a => a.text.trim())
+        .sort((a, b) => b.count - a.count) // Ordenar de mayor a menor
+        .map(a => ({
+            text: a.text.trim(),
+            points: a.count
+        }));
     
     const data = {
         name: name,
@@ -457,7 +470,7 @@ document.getElementById('saveNewQuestion').addEventListener('click', () => {
 function clearForm() {
     document.getElementById('newQuestionName').value = '';
     document.getElementById('newQuestionText').value = '';
-    document.getElementById('newQuestionCategory').value = '';
+    document.getElementById('newQuestionCategory').value = 'general'; // Reset al valor por defecto
     newAnswers = [];
     editingQuestionId = null;
     renderNewAnswers();
@@ -486,7 +499,9 @@ function renderQuestionsList() {
         card.className = 'question-card' + (data.is_active ? '' : ' inactive-question');
         
         let answersHtml = '';
-        data.answers.forEach(ans => {
+        // Ordenar respuestas por puntos (mayor a menor) para mostrar
+        const sortedAnswers = [...data.answers].sort((a, b) => b.count - a.count);
+        sortedAnswers.forEach(ans => {
             answersHtml += `
                 <div class="answer-item">
                     <span class="answer-text">${escapeHtml(ans.text)}</span>
@@ -499,13 +514,16 @@ function renderQuestionsList() {
             ? '<button class="btn-secondary" onclick="toggleActive(' + id + ')">🔒 Desactivar</button>'
             : '<button class="btn-success" onclick="toggleActive(' + id + ')">✅ Activar</button>';
         
+        // Mostrar nombre legible de categoría
+        const categoryName = data.category === 'dev' ? 'Desarrollo' : 'General';
+        
         card.innerHTML = `
             <div class="question-title">
                 ${escapeHtml(data.name)} 
                 ${data.is_active ? '<span class="badge-active">✓ Activa</span>' : '<span class="badge-inactive">✗ Inactiva</span>'}
             </div>
             <div class="question-meta">
-                <span class="category-badge">${escapeHtml(data.category)}</span>
+                <span class="category-badge">${categoryName}</span>
                 <span class="usage-count">Usada ${data.times_used} veces</span>
             </div>
             <div class="question-text">${escapeHtml(data.question)}</div>
@@ -555,10 +573,12 @@ function editQuestion(id) {
     // Fill form with existing data
     document.getElementById('newQuestionName').value = data.name;
     document.getElementById('newQuestionText').value = data.question;
-    document.getElementById('newQuestionCategory').value = data.category;
+        document.getElementById('newQuestionCategory').value = data.category; // Funciona con el select
     
-    // Load answers
-    newAnswers = data.answers.map(a => ({text: a.text, count: a.count}));
+        // Load answers ordenadas por puntos (mayor a menor)
+        newAnswers = [...data.answers]
+            .sort((a, b) => b.count - a.count)
+            .map(a => ({text: a.text, count: a.count}));
     renderNewAnswers();
     
     // Set editing mode
