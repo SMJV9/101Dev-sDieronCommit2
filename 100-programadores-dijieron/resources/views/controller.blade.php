@@ -260,6 +260,7 @@
     <section>
         <label>Pregunta:</label>
         <input id="question" style="width:60%" placeholder="¿Qué fruta comen más los niños?" />
+        <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700">📚 Banco de Preguntas</a>
     </section>
 
     <section style="margin-top:12px">
@@ -1074,6 +1075,22 @@ function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, f
 
 // attempt to pre-load answers from storage if present to have a fast start
 try{ const st = localStorage.getItem('game-100mx'); if(st){ const parsed = JSON.parse(st); if(parsed && parsed.msg && parsed.msg.payload && Array.isArray(parsed.msg.payload.answers)){ answers = parsed.msg.payload.answers.map(a=>({...a})); render(); } } }catch(e){}
+
+// Check if there's a question loaded from the question bank
+try{
+    const loadedQ = localStorage.getItem('game-load-question');
+    if(loadedQ){
+        const data = JSON.parse(loadedQ);
+        questionEl.value = data.question;
+        answers = data.answers.map(a => ({...a, revealed: false, correct: false}));
+        render();
+        // Clear the temp storage
+        localStorage.removeItem('game-load-question');
+        alert('✅ Pregunta cargada desde el Banco de Preguntas');
+    }
+}catch(e){
+    console.error('Error loading question from bank:', e);
+}
 </script>
 </body>
 </html>

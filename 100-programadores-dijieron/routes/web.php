@@ -9,4 +9,8 @@ Route::get('/', function () {
 
 Route::get('/tablero', [GameController::class, 'board'])->name('board');
 Route::get('/controller', [GameController::class, 'controller'])->name('controller');
+Route::get('/questions', function () {
+    return view('questions');
+})->name('questions');
 Route::post('/round/allocate', [GameController::class, 'allocate'])->name('round.allocate');
+
