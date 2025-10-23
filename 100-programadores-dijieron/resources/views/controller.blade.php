@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Controller - 1100100 Devs Dijeron</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         /* Terminal / Developer aesthetic */
         @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700;900&display=swap');
@@ -259,16 +260,27 @@
 
     <section>
         <label>Pregunta:</label>
-        <input id="question" style="width:60%" placeholder="¿Qué fruta comen más los niños?" />
+        <input id="question" style="width:60%" placeholder="" />
         <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700">📚 Banco de Preguntas</a>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <label style="margin-bottom:0">Elegir desde banco:</label>
+            <select id="questionDropdown" style="min-width:360px">
+                <option value="">-- seleccionar pregunta activa --</option>
+
+            </select>
+            <button id="loadSelectedQuestion">Cargar</button>
+            <button id="refreshQuestions" title="Actualizar lista" style="background:rgba(0,0,0,0.5);color:var(--text);border:1px solid rgba(102,252,241,0.3)">↻</button>
+            <span id="dropdownInfo" style="font-size:12px;color:var(--muted)">Muestra solo preguntas activas</span>
+            <span id="dropdownStatus" style="font-size:12px;color:#94a3b8"></span>
+        </div>
     </section>
 
     <section style="margin-top:12px">
-        <button id="setDefaults">Cargar ejemplo</button>
+        <!-- <button id="setDefaults">Cargar ejemplo</button> -->
         <button id="sendInit">Enviar al tablero</button>
         <button id="resend">Reenviar estado</button>
         <button id="reset">Reset</button>
-        <button id="addAnswer">Agregar respuesta</button>
+        <!-- <button id="addAnswer">Agregar respuesta</button> -->
     </section>
     
     <section style="margin-top:12px">
@@ -360,8 +372,74 @@ if (usingBroadcast && channel){
 const answersEl = document.getElementById('answers');
 const stateEl = document.getElementById('state');
 const questionEl = document.getElementById('question');
+const questionDropdownEl = document.getElementById('questionDropdown');
+const loadSelectedBtn = document.getElementById('loadSelectedQuestion');
+const refreshQuestionsBtn = document.getElementById('refreshQuestions');
+const dropdownStatusEl = document.getElementById('dropdownStatus');
+let dropdownQuestionsIndex = [];
+
+// Build API base from current origin to preserve dev port (e.g., :8000)
+const API_QUESTIONS_BASE = `${window.location.origin}/api/questions`;
 // logs removed by user request
 const ctrlLogs = null;
+
+// ===== Dropdown: fetch and load active questions (global) =====
+async function fetchQuestionsForDropdown(){
+    if(!questionDropdownEl) return;
+    try{
+        if(dropdownStatusEl) dropdownStatusEl.textContent = 'Cargando…';
+        const res = await fetch(API_QUESTIONS_BASE);
+        const data = await res.json();
+        const active = Array.isArray(data) ? data.filter(q => q && q.is_active) : [];
+        active.sort((a,b)=>{ const an=(a.name||'').toLowerCase(); const bn=(b.name||'').toLowerCase(); return an<bn?-1:an>bn?1:0; });
+        dropdownQuestionsIndex = active;
+        questionDropdownEl.innerHTML = '<option value="">-- seleccionar pregunta activa --</option>';
+        active.forEach(q => {
+            const cat = q.category === 'dev' ? 'Desarrollo' : 'General';
+            const used = q.times_used || 0;
+            const opt = document.createElement('option');
+            opt.value = String(q.id);
+            opt.textContent = `${q.name} · ${cat} · usados: ${used}`;
+            questionDropdownEl.appendChild(opt);
+        });
+        if(dropdownStatusEl){
+            dropdownStatusEl.style.color = active.length ? '#22c55e' : '#f59e0b';
+            dropdownStatusEl.textContent = active.length ? `${active.length} activa(s)` : 'No hay preguntas activas';
+        }
+    }catch(e){
+        console.error('Error fetching questions for dropdown', e);
+        if(dropdownStatusEl){ dropdownStatusEl.style.color = '#ef4444'; dropdownStatusEl.textContent = 'Error cargando lista'; }
+    }
+}
+
+async function loadSelectedQuestion(){
+    if(!questionDropdownEl) return;
+    const id = questionDropdownEl.value;
+    if(!id){ alert('Selecciona una pregunta'); return; }
+    try{
+        const res = await fetch(`${API_QUESTIONS_BASE}/${id}/load`);
+        const payload = await res.json();
+        if(!payload || !payload.success){ alert('No se pudo cargar la pregunta'); return; }
+        questionEl.value = payload.question || '';
+        answers = (payload.answers || []).map(a => ({text:a.text, count:a.count, revealed:false, correct:false}));
+        answers.sort((a,b)=> b.count - a.count);
+        render();
+        const initPayload = {answers, state:'Pregunta cargada', question: questionEl.value};
+        sendMessage({type:'init', payload: initPayload});
+        stateEl.textContent = 'Pregunta cargada';
+    }catch(e){
+        console.error('Error loading selected question', e);
+        alert('Ocurrió un error al cargar la pregunta');
+    }
+}
+
+if(loadSelectedBtn){ loadSelectedBtn.addEventListener('click', loadSelectedQuestion); }
+if(refreshQuestionsBtn){ refreshQuestionsBtn.addEventListener('click', fetchQuestionsForDropdown); }
+if(questionDropdownEl){ questionDropdownEl.addEventListener('change', (e)=>{ if(e.target.value) loadSelectedQuestion(); }); }
+
+// initial population on load
+fetchQuestionsForDropdown();
+
 
  
 
@@ -459,22 +537,22 @@ answersEl.addEventListener('input', (ev) => {
         scheduleAutoResend();
 });
 
-document.getElementById('setDefaults').addEventListener('click', () => {
-    questionEl.value = '¿Qué fruta comen más los niños?';
-    answers = [
-        {text:'Manzana', count:32, revealed:false},
-        {text:'Plátano', count:25, revealed:false},
-        {text:'Naranja', count:18, revealed:false},
-        {text:'Fresa', count:12, revealed:false},
-        {text:'Uva', count:8, revealed:false}
-    ];
-    render();
-});
+// document.getElementById('setDefaults').addEventListener('click', () => {
+//     questionEl.value = '¿Qué fruta comen más los niños?';
+//     answers = [
+//         {text:'Manzana', count:32, revealed:false},
+//         {text:'Plátano', count:25, revealed:false},
+//         {text:'Naranja', count:18, revealed:false},
+//         {text:'Fresa', count:12, revealed:false},
+//         {text:'Uva', count:8, revealed:false}
+//     ];
+//     render();
+// });
 
-document.getElementById('addAnswer').addEventListener('click', ()=>{
-    answers.push({text:'Nueva respuesta', count:0, revealed:false});
-    render();
-});
+// document.getElementById('addAnswer').addEventListener('click', ()=>{
+//     answers.push({text:'Nueva respuesta', count:0, revealed:false});
+//     render();
+// });
 
 // round controls
 const team1Input = document.getElementById('team1Input');
@@ -1089,6 +1167,7 @@ try{
         alert('✅ Pregunta cargada desde el Banco de Preguntas');
         
         // Auto-send to board
+
         const payload = {answers, state:'Pregunta cargada', question: questionEl.value};
         console.debug('[controller] auto-sending loaded question', payload);
         sendMessage({type:'init', payload});

@@ -93,11 +93,11 @@ http://localhost:8000/questions
 5. O "✖ Cancelar" para abortar
 
 ### Paso 4: Cargar al Controller
-1. Click en "📋 Cargar al Controller"
-2. Abrir `/controller` en otra pestaña
-3. La pregunta se carga automáticamente
-4. Se envía al tablero
-5. ¡Listo para jugar!
+1. Opción A (desde el banco): Click en "📋 Cargar al Controller" en la tarjeta
+2. Opción B (desde el controller): Usa el dropdown "Elegir desde banco" y selecciona la pregunta
+3. Se carga automáticamente en el Controller
+4. Se envía al tablero al instante
+5. Incrementa el contador de uso en la BD
 
 ### Paso 5: Gestionar Estado
 - **🔒 Desactivar**: Oculta la pregunta (no se puede usar)
