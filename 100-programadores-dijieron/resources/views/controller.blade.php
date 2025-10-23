@@ -124,6 +124,34 @@
             box-shadow:none;
         }
 
+        /* Multiplier buttons */
+        .multiplier-btn{
+            background:rgba(255,255,255,0.05);
+            border:2px solid rgba(0,217,255,0.3);
+            color:#94a3b8;
+            padding:8px 16px;
+            border-radius:8px;
+            font-weight:700;
+            font-size:14px;
+            cursor:pointer;
+            transition:all 0.2s;
+            margin-left:0;
+            box-shadow:none;
+        }
+        
+        .multiplier-btn:hover{
+            border-color:var(--accent);
+            color:var(--accent);
+            transform:translateY(0);
+        }
+        
+        .multiplier-btn.active{
+            background:linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
+            border-color:var(--accent);
+            color:white;
+            box-shadow:0 0 0 3px rgba(0,217,255,0.2);
+        }
+
         /* Active team selector styling */
         #turnControls{margin-top:10px}
         .active-team-btn{background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.25);color:#e2e8f0;padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
@@ -220,6 +248,12 @@
         <label>Equipos (separados por coma):</label>
         <input id="teamsInput" placeholder="Equipo 1,Equipo 2" style="width:320px;margin-left:8px" />
         <span id="teamsValidation" style="margin-left:10px;color:#ef4444;font-weight:600;display:none">Ingresa al menos dos equipos</span>
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <label style="font-weight:600">Multiplicador:</label>
+            <button id="multiplier1" class="multiplier-btn active" data-multiplier="1">x1</button>
+            <button id="multiplier2" class="multiplier-btn" data-multiplier="2">x2 Doble</button>
+            <button id="multiplier3" class="multiplier-btn" data-multiplier="3">x3 Triple</button>
+        </div>
         <div style="margin-top:8px">
             <button id="startRound">Iniciar ronda</button>
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
@@ -302,6 +336,7 @@ let strikeCount = 0; // Counter for X's (wrong answers)
 let autoResendTimer = null;
 let activeTeam = null; // current team answering
 let roundNumber = 1; // Track which round we're on
+let pointMultiplier = 1; // Points multiplier (1x, 2x, 3x)
 
 // auto-resend when answers change, to help boards that miss initial message
 function scheduleAutoResend(){ 
@@ -419,6 +454,9 @@ const stealAttemptEl = document.getElementById('stealAttempt');
 const stealTeamNameEl = document.getElementById('stealTeamName');
 const stealSuccessBtn = document.getElementById('stealSuccess');
 const stealFailBtn = document.getElementById('stealFail');
+const multiplier1Btn = document.getElementById('multiplier1');
+const multiplier2Btn = document.getElementById('multiplier2');
+const multiplier3Btn = document.getElementById('multiplier3');
 
 // live validation for teams
 teamsInput.addEventListener('input', ()=>{
@@ -435,6 +473,21 @@ teamsInput.addEventListener('input', ()=>{
                        parsed.every(t => currentTeams.includes(t)) && 
                        currentTeams.every(t => parsed.includes(t));
     if(nextRoundBtn) nextRoundBtn.disabled = !teamsMatch;
+});
+
+// Multiplier button handlers
+[multiplier1Btn, multiplier2Btn, multiplier3Btn].forEach(btn => {
+    if(btn) {
+        btn.addEventListener('click', () => {
+            // Remove active from all
+            document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
+            // Add active to clicked
+            btn.classList.add('active');
+            // Update multiplier value
+            pointMultiplier = parseInt(btn.dataset.multiplier);
+            console.log('🎯 Multiplicador cambiado a:', pointMultiplier + 'x');
+        });
+    }
 });
 
 startRoundBtn.addEventListener('click', ()=>{
@@ -546,12 +599,13 @@ function runRound(teamNames, keepScores){
             sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
             
             // announce teams and reset round points to 0 (round points accumulate automatically on aciertos)
-            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber}});
+            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber, multiplier: pointMultiplier}});
             // Make sure controller local state also knows the teams immediately (works even if storage fallback)
             currentRound.points = 0;
             currentRound.accumulatedPoints = 0;
             currentRound.teams = teamNames.slice();
             currentRound.roundNumber = roundNumber;
+            currentRound.multiplier = pointMultiplier;
 
             // reset active team UI and board highlight
             activeTeam = null;
@@ -590,8 +644,11 @@ function showAssignIfRoundComplete(){
     const realAnswers = answers.filter(a=>a && a.text);
     const allRevealed = realAnswers.length>0 && realAnswers.every(a=>a.revealed);
     if(allRevealed && currentRound){
-        const finalPoints = Number(currentRound.accumulatedPoints || 0);
+        const basePoints = Number(currentRound.accumulatedPoints || 0);
+        const finalPoints = basePoints * pointMultiplier; // Apply multiplier!
         if(finalPoints <= 0) return;
+
+        console.log(`💰 Asignando ${basePoints} x${pointMultiplier} = ${finalPoints} puntos`);
 
         if(activeTeam){
             // Auto-assign to selected active team
@@ -606,7 +663,8 @@ function showAssignIfRoundComplete(){
             // Fallback: manual choose winner if no active team selected
             roundTeamButtons.innerHTML = '';
             const readyText = document.getElementById('roundReadyText');
-            if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos a:`;
+            const multiplierText = pointMultiplier > 1 ? ` (x${pointMultiplier})` : '';
+            if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos${multiplierText} a:`;
             (currentRound.teams || []).forEach(t=>{
                 const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
                     sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
@@ -874,7 +932,8 @@ if(stealSuccessBtn){
         const stealTeam = stealAttemptEl.dataset.stealTeam;
         
         // Get CURRENT accumulated points (including any answers revealed during steal)
-        const points = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        const basePoints = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        const points = basePoints * pointMultiplier; // Apply multiplier!
         
         // Check if there are any unrevealed answers
         if(currentRound && Array.isArray(currentRound.answers) && currentRound.answers.length > 0){
@@ -885,7 +944,7 @@ if(stealSuccessBtn){
             }
         }
         
-        console.log('💰 Robo exitoso! Asignando', points, 'puntos a', stealTeam);
+        console.log(`💰 Robo exitoso! ${basePoints} x${pointMultiplier} = ${points} puntos a ${stealTeam}`);
         
         // Award points to the team that stole
         if(stealTeam && points >= 0){
@@ -924,9 +983,10 @@ if(stealFailBtn){
         }
         
         // Get CURRENT accumulated points (including any answers revealed during steal)
-        const points = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        const basePoints = Number(currentRound && currentRound.accumulatedPoints ? currentRound.accumulatedPoints : 0);
+        const points = basePoints * pointMultiplier; // Apply multiplier!
         
-        console.log('💰 Asignando', points, 'puntos al equipo original:', originalTeam);
+        console.log(`💰 Robo fallido! ${basePoints} x${pointMultiplier} = ${points} puntos al equipo original: ${originalTeam}`);
         
         // Award points to the original team (the one that had control)
         if(originalTeam && points >= 0){

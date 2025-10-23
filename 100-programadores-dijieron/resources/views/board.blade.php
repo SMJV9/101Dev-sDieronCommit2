@@ -5,9 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>1100100 Devs Dijeron — Tablero</title>
     <style>
-        /* Tech / neon / glass aesthetic */
-        :root{--bg:#071024;--glass:rgba(255,255,255,0.04);--accent:#00e5ff;--accent2:#7b61ff;--muted:#8aa0b1}
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#030617 0%,#071024 60%);font-family:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial;color:#e6f7ff}
+        /* Terminal / Developer aesthetic */
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700;900&display=swap');
+        
+        :root{
+            --bg:#0b0c10;
+            --bg-dark:#000000;
+            --glass:rgba(102,252,241,0.03);
+            --accent:#66fcf1;
+            --accent2:#45a29e;
+            --text:#c5c6c7;
+            --muted:#7a8084;
+            --success:#10b981;
+            --error:#ef4444;
+        }
+        
+        html,body{
+            height:100%;
+            margin:0;
+            background:linear-gradient(180deg, #000000 0%, #0b0c10 40%, #1f2833 100%);
+            font-family:'Fira Code', monospace;
+            color:var(--text);
+            font-variant-ligatures: normal;
+        }
     .container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
     /* center the board card reliably */
     .dashboard{display:flex;align-items:center;justify-content:center;width:100%;}
@@ -15,33 +35,114 @@
     .dashboard .board{flex:1 1 auto}
 
         /* Left: board */
-        .board{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:18px;backdrop-filter: blur(6px);box-shadow:0 8px 40px rgba(2,6,23,0.6), inset 0 1px 0 rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)}
+        .board{
+            background:rgba(11,12,16,0.85);
+            border-radius:8px;
+            padding:20px;
+            backdrop-filter: blur(10px);
+            box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+            border:1px solid rgba(102,252,241,0.2);
+        }
         .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-        .title{font-weight:800;font-size:20px;letter-spacing:0.6px;color:var(--accent)}
+        .title{
+            font-weight:900;
+            font-size:22px;
+            letter-spacing:1px;
+            color:var(--accent);
+            text-shadow:0 0 20px rgba(102,252,241,0.6), 0 0 40px rgba(102,252,241,0.3);
+        }
         .status{font-size:13px;color:var(--muted)}
 
         .scoreline{display:flex;gap:10px;align-items:center;margin-bottom:8px}
-        .score{flex:0 0 140px;padding:12px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.08));border:1px solid rgba(0,255,255,0.04);box-shadow:0 6px 18px rgba(0,0,0,0.5);}
-        .score .num{font-size:34px;font-weight:900;color:var(--accent);letter-spacing:2px}
-        .score .lbl{font-size:11px;color:var(--muted);margin-top:6px}
+        .score{
+            flex:0 0 140px;
+            padding:14px;
+            border-radius:6px;
+            background:rgba(0,0,0,0.5);
+            border:1px solid rgba(102,252,241,0.3);
+            box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
+        }
+        .score .num{
+            font-size:38px;
+            font-weight:900;
+            color:var(--accent);
+            letter-spacing:3px;
+            text-shadow:0 0 10px rgba(102,252,241,0.8), 0 0 20px rgba(102,252,241,0.4);
+        }
+        .score .lbl{
+            font-size:11px;
+            color:var(--muted);
+            margin-top:6px;
+            text-transform:uppercase;
+            letter-spacing:1px;
+        }
 
         /* Active team highlight */
         .team-card{position:relative;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease}
         .team-card.active{
-            box-shadow:0 0 0 2px rgba(0,229,255,0.5), 0 0 22px rgba(0,229,255,0.25);
-            border-color: rgba(0,229,255,0.6) !important;
+            box-shadow:0 0 0 2px var(--accent), 0 0 22px rgba(102,252,241,0.4);
+            border-color: var(--accent) !important;
             transform: translateY(-2px);
         }
 
         /* Grid of answers */
         .answers-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
-        .cell{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:10px;padding:14px;border:1px solid rgba(255,255,255,0.04);min-height:64px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
-        .cell .text{font-size:16px;color:#dff8ff;min-height:34px}
-        .cell .count{font-family:monospace;font-weight:800;color:var(--accent);font-size:20px}
-        .cell.locked{opacity:0.14;filter:grayscale(0.25);}
+        .cell{
+            background:rgba(0,0,0,0.6);
+            border-radius:6px;
+            padding:16px;
+            border:1px solid rgba(102,252,241,0.2);
+            min-height:70px;
+            display:flex;
+            flex-direction:column;
+            justify-content:space-between;
+            position:relative;
+            overflow:hidden;
+            transition:all 0.3s ease;
+        }
+        .cell .text{
+            font-size:15px;
+            color:var(--text);
+            min-height:36px;
+            font-weight:500;
+        }
+        .cell .count{
+            font-family:'Fira Code', monospace;
+            font-weight:900;
+            color:var(--accent);
+            font-size:22px;
+            text-shadow:0 0 10px rgba(102,252,241,0.6);
+        }
+        .cell.locked{
+            opacity:0.3;
+            filter:grayscale(0.8);
+            border-color:rgba(102,252,241,0.1);
+        }
 
-        /* Neon glow for revealed cells */
-        .cell.revealed{box-shadow:0 6px 30px rgba(0,229,255,0.06), 0 0 18px rgba(123,97,255,0.06) inset;border:1px solid rgba(0,229,255,0.12)}
+        /* Neon glow for revealed cells with animation */
+        .cell.revealed{
+            background:rgba(102,252,241,0.05);
+            box-shadow:0 0 30px rgba(102,252,241,0.2), inset 0 0 20px rgba(102,252,241,0.1);
+            border:1px solid var(--accent);
+            animation:revealGlow 0.5s ease-out;
+        }
+        
+        @keyframes revealGlow{
+            0%{
+                transform:scale(0.95) rotateX(-10deg);
+                opacity:0;
+                box-shadow:0 0 0 rgba(102,252,241,0);
+            }
+            50%{
+                transform:scale(1.02);
+                box-shadow:0 0 40px rgba(102,252,241,0.5);
+            }
+            100%{
+                transform:scale(1) rotateX(0deg);
+                opacity:1;
+                box-shadow:0 0 30px rgba(102,252,241,0.2);
+            }
+        }
 
         /* Right column: meta & logs */
         .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03)}
@@ -74,6 +175,9 @@
         .steal-sub{margin-top:8px;font-size:22px;font-weight:800;opacity:.96}
         @keyframes steal-pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
         @keyframes steal-glow{0%{box-shadow:0 0 40px rgba(239,68,68,.55),0 0 0 4px rgba(255,255,255,0.08)}100%{box-shadow:0 0 90px rgba(249,115,22,.7),0 0 0 6px rgba(255,255,255,0.1)}}
+        
+        /* Pulse animation for active turn banner */
+        @keyframes pulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,229,255,0.4)}50%{transform:scale(1.02);box-shadow:0 0 20px 10px rgba(0,229,255,0.2)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,229,255,0)}}
 
     @media (max-width:880px){ .dashboard .board-wrapper{flex-direction:column;align-items:stretch} .panel{order:2} }
     </style>
@@ -82,51 +186,64 @@
 <div class="container">
     <div class="dashboard">
         <div class="board-wrapper">
-        <div class="board">
+        <div class="board" style="position:relative">
+            <!-- Estado in absolute top right corner of entire board -->
+            <div style="position:absolute;top:20px;right:20px;z-index:100">
+                <div class="status">Estado: <strong id="state">Esperando</strong></div>
+            </div>
+            
             <div class="header" style="align-items:flex-start;gap:12px;flex-direction:column;display:flex">
                 <div style="display:flex;align-items:center;gap:18px;width:100%">
-                    <!-- left score -->
-                    <div style="flex:0 0 120px;display:flex;flex-direction:column;align-items:center">
-                        <div class="score" style="width:120px;padding:10px">
-                            <div class="num" id="mainScore">000</div>
-                            <div class="lbl">Puntos</div>
+                    <!-- left score - Team 1 -->
+                    <div style="flex:0 0 160px;display:flex;flex-direction:column;align-items:center">
+                        <div class="score" style="width:160px;padding:14px">
+                            <div class="num" id="team1Score">000</div>
+                            <div class="lbl" id="team1Name">Equipo 1</div>
                         </div>
                     </div>
 
                     <div style="flex:1">
-                        <div style="display:flex;justify-content:space-between;align-items:center">
-                            <div class="title">1100100 Devs Dijeron</div>
-                            <div class="status">Estado: <strong id="state">Esperando</strong></div>
+                        <!-- Title centered -->
+                        <div style="text-align:center;margin-bottom:8px">
+                            <div class="title">1100100 Devs Dijieron</div>
+                        </div>
+
+                        <!-- Big accumulated points display - MOVED TO TOP -->
+                        <div style="margin-top:12px;margin-bottom:12px;padding:20px;border-radius:12px;background:linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.15) 100%);border:2px solid rgba(16,185,129,0.4);text-align:center;box-shadow:0 0 30px rgba(16,185,129,0.3)">
+                            <div style="font-size:14px;color:#6ee7b7;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">💰 PUNTOS EN JUEGO</div>
+                            <div id="roundPointsDisplay" style="font-size:64px;font-weight:900;color:#10b981;text-shadow:0 0 25px rgba(16,185,129,0.6), 0 0 50px rgba(16,185,129,0.3);line-height:1">0</div>
                         </div>
 
                         <!-- Question placed prominently above the board -->
-                        <div style="margin-top:12px;margin-bottom:6px;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(0,229,255,0.02), rgba(123,97,255,0.02));border:1px solid rgba(0,229,255,0.06);font-weight:700;color:#dffaff"> 
+                        <div style="margin-bottom:6px;padding:12px;border-radius:10px;background:linear-gradient(90deg, rgba(0,229,255,0.02), rgba(123,97,255,0.02));border:1px solid rgba(0,229,255,0.06);font-weight:700;color:#dffaff"> 
                             <span style="color:var(--muted);font-weight:600;margin-right:8px">Pregunta:</span>
                             <span id="question">(esperando)</span>
                         </div>
-                        <!-- Round points display -->
-                        <div style="margin-top:6px;margin-bottom:6px;padding:8px;border-radius:8px;background:rgba(0,0,0,0.04);color:#cfeffb;font-weight:700">
-                            Puntos de la ronda: <span id="roundPointsDisplay">0</span>
-                            <span id="roundNumberDisplay" style="margin-left:12px;color:var(--accent)">Ronda: 1</span>
+                        
+                        <!-- Round info and multiplier -->
+                        <div style="margin-top:6px;margin-bottom:10px;padding:10px;border-radius:8px;background:rgba(0,0,0,0.04);color:#cfeffb;font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px">
+                            <span id="roundNumberDisplay" style="color:var(--accent);font-size:16px">Ronda: 1</span>
+                            <span id="multiplierDisplay" style="color:#fbbf24;font-weight:900;font-size:16px"></span>
+                        </div>
+
+                        <!-- Active Team Banner -->
+                        <div id="activeTurnBanner" style="display:none;margin-top:10px;margin-bottom:10px;padding:16px;border-radius:12px;background:linear-gradient(135deg, rgba(0,229,255,0.15) 0%, rgba(123,97,255,0.15) 100%);border:2px solid var(--accent);text-align:center;animation:pulse 2s ease-in-out infinite">
+                            <div style="font-size:24px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 20px rgba(0,229,255,0.5)">
+                                🎮 TURNO DE: <span id="activeTurnTeam"></span>
+                            </div>
                         </div>
 
                         <!-- Strikes (X's) Display - Horizontal -->
                         <div id="strikesDisplay" style="margin-top:10px;margin-bottom:10px;display:flex;gap:15px;justify-content:center;align-items:center;flex-direction:row;">
                             <!-- X's rendered here by JS -->
                         </div>
-
-                        <!-- Team score tables (Familia A / Familia B ejemplo) -->
-                        <div id="teamScores" style="margin-top:10px;display:flex;gap:8px;align-items:stretch">
-                            <!-- individual team blocks are rendered by JS -->
-                        </div>
                     </div>
 
-                    <!-- right score -->
-                    <div style="flex:0 0 120px;display:flex;flex-direction:column;align-items:center">
-                        <div class="score" style="width:120px;padding:10px">
-                            <div class="num" id="roundScore">000</div>
-                            <div class="lbl">Ronda</div>
-                            <div class="lbl small" id="roundWinner" style="margin-top:6px;color:var(--muted)"></div>
+                    <!-- right score - Team 2 -->
+                    <div style="flex:0 0 160px;display:flex;flex-direction:column;align-items:center">
+                        <div class="score" style="width:160px;padding:14px">
+                            <div class="num" id="team2Score">000</div>
+                            <div class="lbl" id="team2Name">Equipo 2</div>
                         </div>
                     </div>
                 </div>
@@ -187,13 +304,68 @@ function addStorageListener(fn){ window.addEventListener('storage', (ev)=>{ if(!
 
 if(usingBroadcast && channel){ channel.onmessage = (ev)=>{ handleIncoming(ev.data); }; } else { addStorageListener((m)=>{ handleIncoming(m); }); document.getElementById('connType').textContent = 'localStorage (fallback)'; }
 
-const answersEl = document.getElementById('answers'); const stateEl = document.getElementById('state'); const questionEl = document.getElementById('question'); const mainScore = document.getElementById('mainScore'); const roundScore = document.getElementById('roundScore');
+const answersEl = document.getElementById('answers'); const stateEl = document.getElementById('state'); const questionEl = document.getElementById('question'); 
+const team1ScoreEl = document.getElementById('team1Score'); const team1NameEl = document.getElementById('team1Name');
+const team2ScoreEl = document.getElementById('team2Score'); const team2NameEl = document.getElementById('team2Name');
 let answers = [];
 let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let roundReadySent = false;
 let teamScores = {}; // { 'Familia A': 0, 'Familia B': 0 }
 let strikeCount = 0; // Counter for X's
 let activeTeam = null; // highlighted team answering
+
+// Sound effects using Web Audio API (terminal-style sounds)
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+function playErrorSound() {
+    // Error sound: low harsh beep (compile error)
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.frequency.value = 200; // Low frequency
+    oscillator.type = 'square'; // Harsh sound
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+    console.log('🔊 Error sound');
+}
+
+function playSuccessSound() {
+    // Success sound: rising beeps (build success)
+    const times = [0, 0.08, 0.16];
+    const freqs = [600, 800, 1000];
+    times.forEach((time, idx) => {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.frequency.value = freqs[idx];
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0.2, audioContext.currentTime + time);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.15);
+        osc.start(audioContext.currentTime + time);
+        osc.stop(audioContext.currentTime + time + 0.15);
+    });
+    console.log('🔊 Success sound');
+}
+
+function playBootSound() {
+    // Boot sound: terminal startup (low to high sweep)
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.type = 'sawtooth';
+    oscillator.frequency.setValueAtTime(100, audioContext.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.5);
+    gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+    console.log('🔊 Boot sound');
+}
 
 function renderStrikes(){
     const strikesDisplay = document.getElementById('strikesDisplay');
@@ -249,29 +421,29 @@ function render(){
         if(a.revealed) total += Number(a.count||0);
     }
 
-    mainScore.textContent = String(total).padStart(3,'0');
-    roundScore.textContent = '000';
     renderTeamScores();
 }
 
 function renderTeamScores(){
-    const el = document.getElementById('teamScores');
-    if(!el) return;
-    el.innerHTML = '';
-    // ensure at least two example families if none present
-    // if there are no teams, don't render any team boxes (controller is authoritative)
-    if(Object.keys(teamScores).length === 0){ return; }
-    Object.keys(teamScores).forEach(name=>{
-        const wrapper = document.createElement('div');
-        wrapper.style.flex = '0 0 160px';
-        wrapper.style.padding = '8px';
-        wrapper.style.borderRadius = '8px';
-        wrapper.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.04))';
-        wrapper.style.border = '1px solid rgba(255,255,255,0.03)';
-        wrapper.className = 'team-card' + (activeTeam === name ? ' active' : '');
-        wrapper.innerHTML = `<div style="font-size:12px;color:var(--muted);">${escapeHtml(name)}</div><div style="font-weight:800;font-size:20px;color:var(--accent);">${String(teamScores[name]||0).padStart(3,'0')}</div>`;
-        el.appendChild(wrapper);
-    });
+    // Update large side scores only
+    const teamNames = Object.keys(teamScores);
+    if(teamNames.length >= 1){
+        const team1 = teamNames[0];
+        if(team1NameEl) team1NameEl.textContent = team1;
+        if(team1ScoreEl) team1ScoreEl.textContent = String(teamScores[team1]||0).padStart(3,'0');
+    } else {
+        if(team1NameEl) team1NameEl.textContent = 'Equipo 1';
+        if(team1ScoreEl) team1ScoreEl.textContent = '000';
+    }
+    
+    if(teamNames.length >= 2){
+        const team2 = teamNames[1];
+        if(team2NameEl) team2NameEl.textContent = team2;
+        if(team2ScoreEl) team2ScoreEl.textContent = String(teamScores[team2]||0).padStart(3,'0');
+    } else {
+        if(team2NameEl) team2NameEl.textContent = 'Equipo 2';
+        if(team2ScoreEl) team2ScoreEl.textContent = '000';
+    }
 }
 
 function appendLog(txt){}
@@ -293,6 +465,7 @@ function handleIncoming(msg){
     } else if(msg.type === 'reveal'){
         const idx = msg.payload.index;
         if(answers[idx]) answers[idx].revealed = true;
+        playSuccessSound(); // ✅ Build success sound
         render();
     } else if(msg.type === 'state'){
         stateEl.textContent = msg.payload.state;
@@ -309,10 +482,13 @@ function handleIncoming(msg){
         }
     } else if(msg.type === 'update_strikes'){
         // Update strike count
+        const prevCount = strikeCount;
         strikeCount = Number((msg.payload && msg.payload.count) || 0);
+        if(strikeCount > prevCount) playErrorSound(); // ❌ Compile error sound
         renderStrikes();
     } else if(msg.type === 'round_points'){
         // controller started a round; store points & teams and update display
+        playBootSound(); // 🚀 Terminal boot sound for round start
         currentRound.points = Number((msg.payload && msg.payload.points) || 0);
         currentRound.teams = (msg.payload && msg.payload.teams) || [];
         currentRound.accumulatedPoints = 0; // reset accumulated points for new round
@@ -322,6 +498,18 @@ function handleIncoming(msg){
         const roundNum = Number((msg.payload && msg.payload.roundNumber) || 1);
         const roundNumEl = document.getElementById('roundNumberDisplay');
         if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNum}`;
+        // Update multiplier display
+        const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+        const multiplierEl = document.getElementById('multiplierDisplay');
+        if(multiplierEl){
+            if(multiplier > 1){
+                multiplierEl.textContent = `🔥 x${multiplier} ${multiplier === 2 ? 'DOBLE' : 'TRIPLE'}`;
+                multiplierEl.style.display = 'inline';
+            } else {
+                multiplierEl.textContent = '';
+                multiplierEl.style.display = 'none';
+            }
+        }
         // clear previous round winner
         const rw = document.getElementById('roundWinner'); if(rw) rw.textContent = '';
         // reset strikes
@@ -346,14 +534,24 @@ function handleIncoming(msg){
     } else if(msg.type === 'active_team'){
         // Highlight which team is currently answering
         activeTeam = (msg.payload && msg.payload.team) ? String(msg.payload.team) : null;
+        
+        // Update banner
+        const banner = document.getElementById('activeTurnBanner');
+        const teamSpan = document.getElementById('activeTurnTeam');
+        if(banner && teamSpan){
+            if(activeTeam){
+                teamSpan.textContent = activeTeam;
+                banner.style.display = 'block';
+            } else {
+                banner.style.display = 'none';
+            }
+        }
+        
         renderTeamScores();
     } else if(msg.type === 'assign_points'){
         const p = (msg.payload && Number(msg.payload.points)) || 0;
         const team = (msg.payload && msg.payload.team) || '';
-        // show assigned points and the team that won the round
-        roundScore.textContent = String(p).padStart(3,'0');
-        const rw = document.getElementById('roundWinner'); if(rw) rw.textContent = team ? ('Ganador: ' + team) : '';
-        // optionally, update the main score visually (keep mainScore as sum of revealed answers)
+        // Update team scores
         if(team){
             if(!(team in teamScores)) teamScores[team] = 0;
             teamScores[team] = Number(teamScores[team] || 0) + Number(p || 0);
@@ -383,10 +581,16 @@ function handleIncoming(msg){
         document.getElementById('roundPointsDisplay').textContent = '0';
         const roundNumEl = document.getElementById('roundNumberDisplay');
         if(roundNumEl) roundNumEl.textContent = 'Ronda: 1';
-        roundScore.textContent = '000';
-        mainScore.textContent = '000';
-        const rw = document.getElementById('roundWinner'); 
-        if(rw) rw.textContent = '';
+        const multiplierEl = document.getElementById('multiplierDisplay');
+        if(multiplierEl) { multiplierEl.textContent = ''; multiplierEl.style.display = 'none'; }
+        // Reset team scores
+        if(team1NameEl) team1NameEl.textContent = 'Equipo 1';
+        if(team1ScoreEl) team1ScoreEl.textContent = '000';
+        if(team2NameEl) team2NameEl.textContent = 'Equipo 2';
+        if(team2ScoreEl) team2ScoreEl.textContent = '000';
+        // Hide active turn banner
+        const banner = document.getElementById('activeTurnBanner');
+        if(banner) banner.style.display = 'none';
         
         // Force clear team scores display
         const teamScoresEl = document.getElementById('teamScores');
