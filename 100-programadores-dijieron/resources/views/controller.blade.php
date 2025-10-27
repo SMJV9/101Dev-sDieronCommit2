@@ -89,7 +89,7 @@
                 </div>
                 <div style="flex:0 0 auto">
                     <label style="font-size:11px;margin-bottom:4px">Segundos:</label>
-                    <input type="number" id="timerSeconds" value="30" min="5" max="300" style="width:80px;padding:6px;font-size:14px;font-weight:700" />
+                    <input type="number" id="timerSeconds" value="10" min="5" max="300" style="width:80px;padding:6px;font-size:14px;font-weight:700" />
                 </div>
             </div>
             <div id="timerProgress" style="margin-top:8px;height:6px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden">
@@ -882,7 +882,7 @@ function stopTimer(){
 
 function resetTimer(){
     stopTimer();
-    timerInitialTime = parseInt(timerSecondsInput?.value || 30);
+    timerInitialTime = parseInt(timerSecondsInput?.value || 10);
     timerRemaining = timerInitialTime;
     updateTimerDisplay();
 }
@@ -1164,6 +1164,9 @@ if(addStrikeBtn){
             strikeCount++;
             updateStrikeDisplay();
             sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+            
+            // Reset timer when X is added (wrong answer)
+            resetTimer();
         }
 
         // On 3 strikes, perform steal: award round points to the OTHER team
