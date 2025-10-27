@@ -312,6 +312,9 @@ answersEl.addEventListener('click', (ev) => {
         
         const pts = Number(answers[idx] && answers[idx].count) || 0;
         
+        // Play success sound
+        playSuccessSound();
+        
         // reveal on board
         sendMessage({type:'reveal', payload:{index:idx}});
         answers[idx].revealed = true;
@@ -846,6 +849,47 @@ function playAlarmSound(){
     }catch(e){}
 }
 
+// Success sound - triumphant ascending tones
+function playSuccessSound(){
+    try{
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Three ascending notes - like a "ding ding ding!"
+        const frequencies = [523.25, 659.25, 783.99]; // C5, E5, G5 (major chord)
+        frequencies.forEach((freq, index) => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = freq;
+            oscillator.type = 'sine';
+            const startTime = audioContext.currentTime + (index * 0.1);
+            gainNode.gain.setValueAtTime(0.3, startTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+            oscillator.start(startTime);
+            oscillator.stop(startTime + 0.3);
+        });
+    }catch(e){}
+}
+
+// Error sound - descending buzz
+function playErrorSound(){
+    try{
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Buzzer sound - harsh and descending
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.setValueAtTime(300, audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.3);
+        oscillator.type = 'sawtooth';
+        gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    }catch(e){}
+}
+
 function startTimer(){
     if(timerRunning) return;
     
@@ -1164,6 +1208,9 @@ if(addStrikeBtn){
             strikeCount++;
             updateStrikeDisplay();
             sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+            
+            // Play error sound
+            playErrorSound();
             
             // Reset timer when X is added (wrong answer)
             resetTimer();
