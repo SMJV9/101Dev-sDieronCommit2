@@ -469,9 +469,12 @@ function handleIncoming(msg){
         // a new init usually means a new round lifecycle; don't auto-emit round_ready here
     } else if(msg.type === 'reveal'){
         const idx = msg.payload.index;
-        if(answers[idx]) answers[idx].revealed = true;
-        playSuccessSound(); // ✅ Build success sound
-        render();
+        if(!Number.isFinite(idx) || !answers[idx]){ return; }
+        // Defensive: ignore duplicate reveals of the same index
+        if(answers[idx].revealed){ return; }
+        answers[idx].revealed = true;
+        playSuccessSound(); // ✅ Success sound
+        render(); // render triggers the reveal animation on inserted .cell.revealed
     } else if(msg.type === 'state'){
         stateEl.textContent = msg.payload.state;
     } else if(msg.type === 'countdown'){

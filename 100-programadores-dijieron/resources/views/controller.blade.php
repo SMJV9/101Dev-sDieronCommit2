@@ -257,6 +257,18 @@
             font-size:15px;
             text-shadow:0 0 10px rgba(102,252,241,0.3);
         }
+        
+        /* Timer animations */
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+                opacity: 1; 
+            }
+            50% { 
+                transform: scale(1.1); 
+                opacity: 0.8; 
+            }
+        }
     </style>
 </head>
 <body>
@@ -289,6 +301,7 @@
         <button id="sendInit">Enviar al tablero</button>
         <button id="resend">Reenviar estado</button>
         <button id="reset">Reset</button>
+        <button id="newGame" style="margin-left:6px;background:linear-gradient(135deg,#f59e0b 0%, #d97706 100%)">Nueva partida</button>
         <!-- <button id="addAnswer">Agregar respuesta</button> -->
         <span id="syncStatus" style="margin-left:12px;font-size:12px;color:#94a3b8">Sin actividad</span>
     </section>
@@ -323,6 +336,29 @@
         <div id="turnControls" style="display:none">
             <label style="margin-right:8px">Turno:</label>
             <div id="activeTeamButtons" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        </div>
+        <!-- Timer de respuesta -->
+        <div id="timerContainer" style="display:none;margin-top:12px;padding:12px;border-radius:8px;background:rgba(102,252,241,0.05);border:1px solid rgba(102,252,241,0.3)">
+            <div style="display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap">
+                <div style="flex:1">
+                    <div style="font-size:13px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;font-weight:600">⏱️ Tiempo de respuesta</div>
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <div id="timerDisplay" style="font-size:48px;font-weight:900;color:var(--accent);text-shadow:0 0 20px rgba(102,252,241,0.6);font-variant-numeric:tabular-nums;min-width:120px">30</div>
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                            <button id="startTimer" style="padding:6px 12px;font-size:12px">▶️ Iniciar</button>
+                            <button id="pauseTimer" style="padding:6px 12px;font-size:12px;display:none">⏸️ Pausar</button>
+                            <button id="resetTimer" style="padding:6px 12px;font-size:12px;background:rgba(122,128,132,0.3);color:var(--text)">🔄 Reset</button>
+                        </div>
+                    </div>
+                </div>
+                <div style="flex:0 0 auto">
+                    <label style="font-size:11px;margin-bottom:4px">Segundos:</label>
+                    <input type="number" id="timerSeconds" value="30" min="5" max="300" style="width:80px;padding:6px;font-size:14px;font-weight:700" />
+                </div>
+            </div>
+            <div id="timerProgress" style="margin-top:8px;height:6px;background:rgba(0,0,0,0.3);border-radius:3px;overflow:hidden">
+                <div id="timerProgressBar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width 0.3s linear,background 0.3s;width:100%"></div>
+            </div>
         </div>
         <div id="roundAssign" style="display:none;margin-top:8px;padding:8px;border-radius:6px;background:#f1f5f9">
             <div id="roundReadyText" style="font-weight:700;color:#0b1220;margin-bottom:6px">La ronda terminó. ¿Qué familia gana los puntos?</div>
@@ -551,6 +587,11 @@ answersEl.addEventListener('click', (ev) => {
         
         // Update round points display
         sendMessage({type:'update_round_total', payload:{points: currentRound.accumulatedPoints}});
+        
+        // Reset timer on correct answer (but don't start it)
+        if(timerRunning || timerRemaining < timerInitialTime){
+            resetTimer();
+        }
         
         render();
         showAssignIfRoundComplete();
@@ -945,7 +986,205 @@ function selectActiveTeam(name){
     });
     // Inform board to highlight
     sendMessage({type:'active_team', payload:{team:name}});
+    
+    // Show timer when team is selected
+    const timerContainer = document.getElementById('timerContainer');
+    if(timerContainer) timerContainer.style.display = 'block';
 }
+
+// ===== TIMER DE RESPUESTA =====
+let timerInterval = null;
+let timerRemaining = 30;
+let timerRunning = false;
+let timerInitialTime = 30;
+
+const timerDisplay = document.getElementById('timerDisplay');
+const timerProgressBar = document.getElementById('timerProgressBar');
+const timerSecondsInput = document.getElementById('timerSeconds');
+const startTimerBtn = document.getElementById('startTimer');
+const pauseTimerBtn = document.getElementById('pauseTimer');
+const resetTimerBtn = document.getElementById('resetTimer');
+
+function updateTimerDisplay(){
+    if(!timerDisplay) return;
+    timerDisplay.textContent = timerRemaining;
+    
+    // Update progress bar
+    if(timerProgressBar){
+        const percent = (timerRemaining / timerInitialTime) * 100;
+        timerProgressBar.style.width = percent + '%';
+        
+        // Color based on time remaining
+        if(percent <= 25){
+            timerProgressBar.style.background = 'linear-gradient(90deg, #ef4444, #dc2626)';
+        } else if(percent <= 50){
+            timerProgressBar.style.background = 'linear-gradient(90deg, #f59e0b, #d97706)';
+        } else {
+            timerProgressBar.style.background = 'linear-gradient(90deg, var(--accent), var(--accent2))';
+        }
+    }
+    
+    // Alert sound when exactly 5 seconds remaining
+    if(timerRemaining === 5 && timerRunning){
+        playFiveSecondAlert();
+    }
+    
+    // Pulse effect when low time
+    if(timerRemaining <= 5 && timerRemaining > 0 && timerRunning){
+        timerDisplay.style.animation = 'pulse 0.5s ease-in-out';
+        timerDisplay.style.color = '#ef4444';
+        // Play tick sound
+        playTickSound();
+    } else {
+        timerDisplay.style.animation = 'none';
+        timerDisplay.style.color = 'var(--accent)';
+    }
+}
+
+function playTickSound(){
+    try{
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.frequency.value = 800;
+        oscillator.type = 'sine';
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.1);
+    }catch(e){}
+}
+
+function playFiveSecondAlert(){
+    try{
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Double beep - distinctive alert sound
+        // First beep - higher pitch
+        const osc1 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        osc1.connect(gain1);
+        gain1.connect(audioContext.destination);
+        osc1.frequency.value = 1400; // High pitch
+        osc1.type = 'sine';
+        gain1.gain.setValueAtTime(0.25, audioContext.currentTime);
+        gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        osc1.start(audioContext.currentTime);
+        osc1.stop(audioContext.currentTime + 0.2);
+        
+        // Second beep - same pitch, slightly delayed
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 1400;
+        osc2.type = 'sine';
+        gain2.gain.setValueAtTime(0.25, audioContext.currentTime + 0.25);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.45);
+        osc2.start(audioContext.currentTime + 0.25);
+        osc2.stop(audioContext.currentTime + 0.45);
+        
+        console.log('🔔 ¡Alerta de 5 segundos!');
+    }catch(e){
+        console.error('Error playing five second alert:', e);
+    }
+}
+
+function playAlarmSound(){
+    try{
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // Triple beep alarm
+        [0, 0.15, 0.3].forEach(delay => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 1200;
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + delay);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + delay + 0.12);
+            oscillator.start(audioContext.currentTime + delay);
+            oscillator.stop(audioContext.currentTime + delay + 0.12);
+        });
+    }catch(e){}
+}
+
+function startTimer(){
+    if(timerRunning) return;
+    
+    timerRunning = true;
+    if(startTimerBtn) startTimerBtn.style.display = 'none';
+    if(pauseTimerBtn) pauseTimerBtn.style.display = 'inline-block';
+    
+    timerInterval = setInterval(() => {
+        timerRemaining--;
+        updateTimerDisplay();
+        
+        if(timerRemaining <= 0){
+            stopTimer();
+            onTimerExpired();
+        }
+    }, 1000);
+}
+
+function pauseTimer(){
+    if(!timerRunning) return;
+    
+    timerRunning = false;
+    if(timerInterval) clearInterval(timerInterval);
+    if(startTimerBtn) startTimerBtn.style.display = 'inline-block';
+    if(pauseTimerBtn) pauseTimerBtn.style.display = 'none';
+}
+
+function stopTimer(){
+    timerRunning = false;
+    if(timerInterval) clearInterval(timerInterval);
+    if(startTimerBtn) startTimerBtn.style.display = 'inline-block';
+    if(pauseTimerBtn) pauseTimerBtn.style.display = 'none';
+}
+
+function resetTimer(){
+    stopTimer();
+    timerInitialTime = parseInt(timerSecondsInput?.value || 30);
+    timerRemaining = timerInitialTime;
+    updateTimerDisplay();
+}
+
+function onTimerExpired(){
+    playAlarmSound();
+    
+    // Flash the display
+    if(timerDisplay){
+        timerDisplay.style.animation = 'pulse 0.3s ease-in-out 3';
+        timerDisplay.style.color = '#ef4444';
+    }
+    
+    // Auto-add strike (X)
+    setTimeout(() => {
+        const addStrikeBtn = document.getElementById('addStrike');
+        if(addStrikeBtn) addStrikeBtn.click();
+        alert('⏰ ¡Tiempo agotado! Se agregó una X automáticamente.');
+        
+        // Auto-reset for next turn
+        resetTimer();
+    }, 500);
+}
+
+// Timer button handlers
+if(startTimerBtn) startTimerBtn.addEventListener('click', startTimer);
+if(pauseTimerBtn) pauseTimerBtn.addEventListener('click', pauseTimer);
+if(resetTimerBtn) resetTimerBtn.addEventListener('click', resetTimer);
+if(timerSecondsInput){
+    timerSecondsInput.addEventListener('change', () => {
+        if(!timerRunning){
+            resetTimer();
+        }
+    });
+}
+
+// Initialize timer
+updateTimerDisplay();
 
 
 document.getElementById('sendInit').addEventListener('click', () => {
@@ -982,6 +1221,12 @@ document.getElementById('reset').addEventListener('click', () => {
     const roundNumEl = document.getElementById('roundNumber');
     if(roundNumEl) roundNumEl.textContent = 'Ronda: 1';
     
+    // Reset and hide timer
+    stopTimer();
+    resetTimer();
+    const timerContainer = document.getElementById('timerContainer');
+    if(timerContainer) timerContainer.style.display = 'none';
+    
     // Send comprehensive reset to board
     console.log('[controller] ===== RESET CLICKED =====');
     console.log('[controller] usingBroadcast:', usingBroadcast);
@@ -1002,6 +1247,62 @@ document.getElementById('reset').addEventListener('click', () => {
     // Clear active team highlight on board
     sendMessage({type:'active_team', payload:{team:null}});
 });
+
+// Nueva partida: reinicia nombres, puntos, ronda y UI; bloquea siguiente ronda hasta definir equipos
+const newGameBtn = document.getElementById('newGame');
+if(newGameBtn){
+    newGameBtn.addEventListener('click', ()=>{
+        // Limpiar inputs de equipos (nueva partida empieza sin nombres)
+        if(team1Input) team1Input.value = '';
+        if(team2Input) team2Input.value = '';
+
+        // Reset de estado local
+        answers = [];
+        if(questionEl) questionEl.value = '';
+        strikeCount = 0;
+        updateStrikeDisplay();
+        currentRound = {points:0, teams:[], accumulatedPoints:0};
+        activeTeam = null;
+        roundNumber = 1;
+        pointMultiplier = 1;
+        teamScores = {};
+        persistTeamScores();
+        renderTeamScores();
+        render();
+
+        // UI: ronda y controles
+        const roundNumEl = document.getElementById('roundNumber');
+        if(roundNumEl) roundNumEl.textContent = 'Ronda: 1';
+        if(turnControls) turnControls.style.display = 'none';
+        if(roundAssignEl) roundAssignEl.style.display = 'none';
+        if(stealAttemptEl) stealAttemptEl.style.display = 'none';
+
+        // Reset and hide timer
+        stopTimer();
+        resetTimer();
+        const timerContainer = document.getElementById('timerContainer');
+        if(timerContainer) timerContainer.style.display = 'none';
+
+        // Restablecer botones de multiplicador a x1
+        document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
+        const mult1 = document.getElementById('multiplier1');
+        if(mult1) mult1.classList.add('active');
+
+        // Deshabilitar "Siguiente ronda" hasta que se definan los mismos equipos
+        if(nextRoundBtn) nextRoundBtn.disabled = true;
+        validateTeams(); // muestra validación de equipos si corresponde
+
+        // Limpiar almacenamiento de puntajes y cualquier snapshot previo
+        try{ localStorage.removeItem('game-team-scores'); }catch(e){}
+
+        // Notificar al tablero un reset total y estado consistente (sin turno y multiplicador x1)
+        sendMessage({type:'reset_all', payload:{}});
+        sendMessage({type:'active_team', payload:{team:null}});
+        sendMessage({type:'multiplier', payload:{multiplier: 1}});
+
+        stateEl.textContent = 'Listo';
+    });
+}
 
 channel.onmessage = (ev) => {
     // centralized handler for incoming messages (from channel or storage)
