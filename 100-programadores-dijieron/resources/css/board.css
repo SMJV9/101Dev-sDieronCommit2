@@ -1,0 +1,191 @@
+/* Terminal / Developer aesthetic - Board Styles */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700;900&display=swap');
+
+:root{
+    --bg:#0b0c10;
+    --bg-dark:#000000;
+    --glass:rgba(102,252,241,0.03);
+    --accent:#66fcf1;
+    --accent2:#45a29e;
+    --text:#c5c6c7;
+    --muted:#7a8084;
+    --success:#10b981;
+    --error:#ef4444;
+}
+
+html,body{
+    height:100%;
+    margin:0;
+    background:linear-gradient(180deg, #000000 0%, #0b0c10 40%, #1f2833 100%);
+    font-family:'Fira Code', monospace;
+    color:var(--text);
+    font-variant-ligatures: normal;
+}
+
+.container{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:18px}
+
+/* center the board card reliably */
+.dashboard{display:flex;align-items:center;justify-content:center;width:100%;}
+.dashboard .board-wrapper{width:1000px;max-width:96%;display:flex;gap:22px;align-items:center;justify-content:center}
+.dashboard .board{flex:1 1 auto}
+
+/* Left: board */
+.board{
+    background:rgba(11,12,16,0.85);
+    border-radius:8px;
+    padding:20px;
+    backdrop-filter: blur(10px);
+    box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+    border:1px solid rgba(102,252,241,0.2);
+}
+
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+
+.title{
+    font-weight:900;
+    font-size:22px;
+    letter-spacing:1px;
+    color:var(--accent);
+    text-shadow:0 0 20px rgba(102,252,241,0.6), 0 0 40px rgba(102,252,241,0.3);
+}
+
+.status{font-size:13px;color:var(--muted)}
+
+.scoreline{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+
+.score{
+    flex:0 0 140px;
+    padding:14px;
+    border-radius:6px;
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(102,252,241,0.3);
+    box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
+}
+
+.score .num{
+    font-size:38px;
+    font-weight:900;
+    color:var(--accent);
+    letter-spacing:3px;
+    text-shadow:0 0 10px rgba(102,252,241,0.8), 0 0 20px rgba(102,252,241,0.4);
+}
+
+.score .lbl{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+}
+
+/* Active team highlight */
+.team-card{position:relative;transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease}
+.team-card.active{
+    box-shadow:0 0 0 2px var(--accent), 0 0 22px rgba(102,252,241,0.4);
+    border-color: var(--accent) !important;
+    transform: translateY(-2px);
+}
+
+/* Grid of answers */
+.answers-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:10px}
+
+.cell{
+    background:rgba(0,0,0,0.6);
+    border-radius:6px;
+    padding:16px;
+    border:1px solid rgba(102,252,241,0.2);
+    min-height:70px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    position:relative;
+    overflow:hidden;
+    transition:all 0.3s ease;
+}
+
+.cell .text{
+    font-size:15px;
+    color:var(--text);
+    min-height:36px;
+    font-weight:500;
+}
+
+.cell .count{
+    font-family:'Fira Code', monospace;
+    font-weight:900;
+    color:var(--accent);
+    font-size:22px;
+    text-shadow:0 0 10px rgba(102,252,241,0.6);
+}
+
+.cell.locked{
+    opacity:0.3;
+    filter:grayscale(0.8);
+    border-color:rgba(102,252,241,0.1);
+}
+
+/* Neon glow for revealed cells with animation */
+.cell.revealed{
+    background:rgba(102,252,241,0.05);
+    box-shadow:0 0 30px rgba(102,252,241,0.2), inset 0 0 20px rgba(102,252,241,0.1);
+    border:1px solid var(--accent);
+    animation:revealGlow 0.5s ease-out;
+}
+
+@keyframes revealGlow{
+    0%{
+        transform:scale(0.95) rotateX(-10deg);
+        opacity:0;
+        box-shadow:0 0 0 rgba(102,252,241,0);
+    }
+    50%{
+        transform:scale(1.02);
+        box-shadow:0 0 40px rgba(102,252,241,0.5);
+    }
+    100%{
+        transform:scale(1) rotateX(0deg);
+        opacity:1;
+        box-shadow:0 0 30px rgba(102,252,241,0.2);
+    }
+}
+
+/* Right column: meta & logs */
+.panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:14px;border:1px solid rgba(255,255,255,0.03)}
+.panel h3{margin:0 0 8px 0;color:var(--accent2)}
+.chip{font-size:12px;color:var(--muted);margin-bottom:10px}
+.logs{background:rgba(0,0,0,0.16);border-radius:8px;padding:8px;height:200px;overflow:auto;color:#cfeffb;font-size:12px}
+
+/* subtle animated grid background */
+.bg-grid{position:absolute;inset:0;pointer-events:none;mask-image:linear-gradient(180deg, rgba(0,0,0,1), rgba(0,0,0,0.2));}
+.small{font-size:12px;color:var(--muted)}
+
+@keyframes strikeAppear {
+    0% {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.3) rotate(10deg);
+    }
+    100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 1;
+    }
+}
+
+/* Steal (robo de puntos) overlay */
+.steal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.75);display:none;align-items:center;justify-content:center;z-index:10050}
+.steal-card{background:radial-gradient(circle at 50% 50%, rgba(239,68,68,0.95) 0%, rgba(249,115,22,0.9) 100%);color:#fff;padding:28px 40px;border-radius:16px;text-align:center;box-shadow:0 22px 80px rgba(239,68,68,0.6),0 0 0 4px rgba(255,255,255,0.08)}
+.steal-title{font-size:56px;font-weight:900;letter-spacing:2px;text-transform:uppercase;text-shadow:0 0 40px rgba(255,255,255,0.3),0 0 80px rgba(249,115,22,0.5)}
+.steal-sub{margin-top:8px;font-size:22px;font-weight:800;opacity:.96}
+
+@keyframes steal-pop{0%{transform:scale(.7);opacity:0}60%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
+@keyframes steal-glow{0%{box-shadow:0 0 40px rgba(239,68,68,.55),0 0 0 4px rgba(255,255,255,0.08)}100%{box-shadow:0 0 90px rgba(249,115,22,.7),0 0 0 6px rgba(255,255,255,0.1)}}
+
+/* Pulse animation for active turn banner */
+@keyframes pulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,229,255,0.4)}50%{transform:scale(1.02);box-shadow:0 0 20px 10px rgba(0,229,255,0.2)}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(0,229,255,0)}}
+
+@media (max-width:880px){ 
+    .dashboard .board-wrapper{flex-direction:column;align-items:stretch} 
+    .panel{order:2} 
+}

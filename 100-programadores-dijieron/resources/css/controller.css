@@ -1,0 +1,263 @@
+/* Terminal / Developer aesthetic - Controller Styles */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700;900&display=swap');
+
+:root{
+    --bg:#0b0c10;
+    --bg-dark:#000000;
+    --glass:rgba(102,252,241,0.03);
+    --accent:#66fcf1;
+    --accent2:#45a29e;
+    --text:#c5c6c7;
+    --muted:#7a8084;
+    --success:#10b981;
+    --danger:#ef4444;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+
+body{
+    font-family:'Fira Code', monospace;
+    background:linear-gradient(180deg, #000000 0%, #0b0c10 40%, #1f2833 100%);
+    color:var(--text);
+    min-height:100vh;
+    padding:20px;
+}
+
+header{
+    background:rgba(11,12,16,0.85);
+    padding:20px 30px;
+    border-radius:8px;
+    margin-bottom:24px;
+    backdrop-filter: blur(10px);
+    box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+    border:1px solid rgba(102,252,241,0.2);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+h1{
+    font-size:28px;
+    font-weight:900;
+    color:var(--accent);
+    letter-spacing:1px;
+    text-shadow:0 0 20px rgba(102,252,241,0.6), 0 0 40px rgba(102,252,241,0.3);
+}
+
+#state{
+    color:var(--success);
+    font-weight:600;
+    text-shadow:0 0 10px rgba(16,185,129,0.5);
+}
+
+section{
+    background:rgba(11,12,16,0.85);
+    padding:20px;
+    border-radius:8px;
+    margin-bottom:20px;
+    backdrop-filter: blur(10px);
+    box-shadow:0 0 40px rgba(102,252,241,0.1), 0 0 80px rgba(69,162,158,0.05), inset 0 1px 0 rgba(102,252,241,0.05);
+    border:1px solid rgba(102,252,241,0.2);
+}
+
+h3{
+    color:var(--accent);
+    margin-bottom:16px;
+    font-size:18px;
+    font-weight:700;
+    text-shadow:0 0 15px rgba(102,252,241,0.4);
+}
+
+label{
+    display:inline-block;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+    margin-bottom:6px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+}
+
+/* Dark inputs by default (also cover inputs without explicit type) */
+input[type="text"], input[type="number"], select, input:not([type]){
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(102,252,241,0.3);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:6px;
+    font-size:14px;
+    font-family:'Fira Code', monospace;
+    transition:all 0.2s;
+}
+
+input[type="text"]:focus, input[type="number"]:focus, select:focus, input:not([type]):focus{
+    outline:none;
+    border-color:var(--accent);
+    box-shadow:0 0 20px rgba(102,252,241,0.15), inset 0 0 20px rgba(102,252,241,0.05);
+}
+
+button{
+    background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    color:#0b0c10;
+    border:none;
+    padding:8px 16px;
+    border-radius:6px;
+    font-weight:700;
+    font-size:13px;
+    cursor:pointer;
+    transition:all 0.2s;
+    margin-left:8px;
+    box-shadow:0 0 15px rgba(102,252,241,0.3);
+    font-family:'Fira Code', monospace;
+}
+
+button:hover{
+    transform:translateY(-2px);
+    box-shadow:0 0 25px rgba(102,252,241,0.5);
+}
+
+button:active{
+    transform:translateY(0);
+}
+
+button:disabled{
+    background:rgba(122,128,132,0.3);
+    cursor:not-allowed;
+    opacity:0.5;
+    box-shadow:none;
+}
+
+/* Multiplier buttons */
+.multiplier-btn{
+    background:rgba(0,0,0,0.5);
+    border:2px solid rgba(102,252,241,0.3);
+    color:var(--text);
+    padding:8px 16px;
+    border-radius:8px;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    transition:all 0.2s;
+    margin-left:0;
+    box-shadow:none;
+}
+
+.multiplier-btn:hover{
+    border-color:var(--accent);
+    color:var(--accent);
+    box-shadow:0 0 15px rgba(102,252,241,0.2);
+    transform:translateY(0);
+}
+
+.multiplier-btn.active{
+    background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border-color:var(--accent);
+    color:#0b0c10;
+    box-shadow:0 0 20px rgba(102,252,241,0.4);
+}
+
+/* Active team selector styling */
+#turnControls{margin-top:10px}
+.active-team-btn{
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(102,252,241,0.3);
+    color:var(--text);
+    padding:8px 12px;
+    border-radius:8px;
+    cursor:pointer;
+    font-weight:700;
+    font-family:'Fira Code', monospace;
+}
+.active-team-btn.selected{
+    background:linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    border-color:var(--accent);
+    color:#0b0c10;
+    box-shadow:0 0 20px rgba(102,252,241,0.4);
+}
+
+#roundAssign{
+    background:rgba(16,185,129,0.1);
+    border:1px solid rgba(16,185,129,0.3);
+}
+
+#roundAssign button{
+    background:linear-gradient(135deg, var(--success) 0%, #059669 100%);
+    box-shadow:0 0 15px rgba(16,185,129,0.3);
+}
+
+#teamScoresDisplay{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+}
+
+#teamScoresDisplay > div{
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(102,252,241,0.3);
+    padding:16px;
+    border-radius:8px;
+    min-width:140px;
+    text-align:center;
+    box-shadow:0 0 20px rgba(102,252,241,0.1);
+}
+
+.answers{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    max-width:100%;
+}
+
+.answer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px;
+    border-radius:8px;
+    background:rgba(0,0,0,0.5);
+    border:1px solid rgba(102,252,241,0.2);
+    transition:all 0.2s;
+}
+
+.answer:hover{
+    background:rgba(0,0,0,0.7);
+    border-color:rgba(102,252,241,0.4);
+    box-shadow:0 0 15px rgba(102,252,241,0.1);
+}
+
+.answer.answer-correct{
+    background:rgba(16,185,129,0.1);
+    border:1px solid rgba(16,185,129,0.4);
+    box-shadow:0 0 20px rgba(16,185,129,0.2);
+}
+
+.answer input{
+    margin-right:8px;
+}
+/* Read-only look for answers (no cuadro blanco) */
+.answer input[readonly]{
+    background:rgba(0,0,0,0.2);
+    border:1px solid rgba(102,252,241,0.15);
+    color:var(--text);
+    outline:none;
+    box-shadow:none;
+}
+
+.answer strong{
+    color:var(--accent);
+    margin-right:12px;
+    font-size:15px;
+    text-shadow:0 0 10px rgba(102,252,241,0.3);
+}
+
+/* Timer animations */
+@keyframes pulse {
+    0%, 100% { 
+        transform: scale(1); 
+        opacity: 1; 
+    }
+    50% { 
+        transform: scale(1.1); 
+        opacity: 0.8; 
+    }
+}
