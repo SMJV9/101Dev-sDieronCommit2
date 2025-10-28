@@ -111,21 +111,6 @@
         <div id="teamScoresDisplay" style="margin-top:10px;display:flex;gap:8px"></div>
     </section>
     
-    <!-- Keyboard Shortcuts Help -->
-    <section style="background:rgba(102,252,241,0.05);border:1px solid rgba(102,252,241,0.2);padding:12px;margin-bottom:20px">
-        <details>
-            <summary style="cursor:pointer;font-weight:700;color:var(--accent);font-size:14px;user-select:none">⌨️ Atajos de Teclado</summary>
-            <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;font-size:13px">
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">1-8</kbd> Revelar respuesta</div>
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">Espacio</kbd> Iniciar/Pausar timer</div>
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">X</kbd> Agregar strike (❌)</div>
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">R</kbd> Resetear strikes</div>
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">N</kbd> Nueva partida</div>
-                <div><kbd style="background:rgba(0,0,0,0.5);padding:3px 8px;border-radius:4px;font-weight:700">F</kbd> Finalizar ronda</div>
-            </div>
-        </details>
-    </section>
-
     <section class="answers" id="answers"></section>
 </main>
 
@@ -1400,95 +1385,6 @@ try{
 }catch(e){
     console.error('Error loading question from bank:', e);
 }
-
-// ========================================
-// Keyboard Shortcuts
-// ========================================
-document.addEventListener('keydown', (e) => {
-    // Ignore if user is typing in an input/textarea
-    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT'){
-        return;
-    }
-    
-    const key = e.key.toLowerCase();
-    
-    // Numbers 1-8: Reveal answers
-    if(key >= '1' && key <= '8'){
-        e.preventDefault();
-        const index = parseInt(key) - 1;
-        if(answers[index] && !answers[index].revealed){
-            sendMessage({type:'reveal', payload:{index}});
-            answers[index].revealed = true;
-            showAssignIfRoundComplete();
-            render();
-            scheduleAutoResend();
-            console.log(`⌨️ Atajo: Respuesta ${key} revelada`);
-        }
-        return;
-    }
-    
-    // Space: Start/Pause timer
-    if(key === ' '){
-        e.preventDefault();
-        if(timerContainer && timerContainer.style.display !== 'none'){
-            if(timerRunning){
-                pauseTimer();
-                console.log('⌨️ Atajo: Timer pausado');
-            } else {
-                startTimer();
-                console.log('⌨️ Atajo: Timer iniciado');
-            }
-        }
-        return;
-    }
-    
-    // X: Add strike
-    if(key === 'x'){
-        e.preventDefault();
-        const addStrikeBtn = document.getElementById('addStrike');
-        if(addStrikeBtn){
-            addStrikeBtn.click();
-            console.log('⌨️ Atajo: Strike agregado');
-        }
-        return;
-    }
-    
-    // R: Reset strikes
-    if(key === 'r'){
-        e.preventDefault();
-        strikeCount = 0;
-        updateStrikeDisplay();
-        sendMessage({type:'update_strikes', payload:{count: strikeCount}});
-        console.log('⌨️ Atajo: Strikes reseteados');
-        return;
-    }
-    
-    // N: Nueva partida
-    if(key === 'n'){
-        e.preventDefault();
-        const resetBtn = document.getElementById('reset');
-        if(resetBtn){
-            if(confirm('¿Iniciar nueva partida? Esto borrará todo el progreso.')){
-                resetBtn.click();
-                console.log('⌨️ Atajo: Nueva partida iniciada');
-            }
-        }
-        return;
-    }
-    
-    // F: Finalizar ronda
-    if(key === 'f'){
-        e.preventDefault();
-        const finishBtn = document.getElementById('finishRound');
-        if(finishBtn){
-            finishBtn.click();
-            console.log('⌨️ Atajo: Ronda finalizada');
-        }
-        return;
-    }
-});
-
-console.log('⌨️ Atajos de teclado activados');
 </script>
 </body>
 </html>
