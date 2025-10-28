@@ -324,8 +324,8 @@ answersEl.addEventListener('click', (ev) => {
         if(!currentRound.accumulatedPoints) currentRound.accumulatedPoints = 0;
         currentRound.accumulatedPoints += pts;
         
-        // Update round points display
-        sendMessage({type:'update_round_total', payload:{points: currentRound.accumulatedPoints}});
+        // Update round points display (with multiplier)
+        sendMessage({type:'update_round_total', payload:{points: currentRound.accumulatedPoints, multiplier: pointMultiplier}});
         
         // Reset timer on correct answer (but don't start it)
         if(timerRunning || timerRemaining < timerInitialTime){

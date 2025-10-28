@@ -371,12 +371,20 @@ function handleIncoming(msg){
                 multiplierEl.style.display = 'none';
             }
         }
-    } else if(msg.type === 'update_round_total'){
-        // Update the live round points (without multiplier)
-        const pts = Number((msg.payload && msg.payload.points) || 0);
-        currentRound.accumulatedPoints = pts;
+        
+        // Update the displayed points with new multiplier
+        const basePts = Number(currentRound.accumulatedPoints || 0);
+        const finalPts = basePts * multiplier;
         const rpd = document.getElementById('roundPointsDisplay');
-        if(rpd) rpd.textContent = String(pts);
+        if(rpd) rpd.textContent = String(finalPts);
+    } else if(msg.type === 'update_round_total'){
+        // Update the live round points (WITH multiplier applied)
+        const basePts = Number((msg.payload && msg.payload.points) || 0);
+        const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+        const finalPts = basePts * multiplier;
+        currentRound.accumulatedPoints = basePts; // Store base points
+        const rpd = document.getElementById('roundPointsDisplay');
+        if(rpd) rpd.textContent = String(finalPts); // Display multiplied points
     } else if(msg.type === 'team_names'){
         // Live rename of teams preserving scores by position
         const teams = (msg.payload && msg.payload.teams) || [];
