@@ -29,7 +29,10 @@
 <body>
 <div class="wrap">
     <div class="header">
-        <div class="title">1100100 Devs Dijieron — Ronda rápida</div>
+        <div>
+            <div class="title">1100100 Devs Dijieron — Ronda rápida</div>
+            <div id="targetBadge" style="color:#7ef3d6;font-weight:700;margin-top:6px">Objetivo: -</div>
+        </div>
         <div class="teams">
             <div class="team" id="teamA"><div class="name" id="teamAName">Jugador A</div><div class="score" id="teamAScore">0</div></div>
             <div class="team" id="teamB"><div class="name" id="teamBName">Jugador B</div><div class="score" id="teamBScore">0</div></div>
@@ -91,7 +94,8 @@ function renderBoardSlots(){
         right.style.width = '320px'; right.style.background = 'rgba(0,0,0,0.25)'; right.style.padding = '12px'; right.style.borderRadius = '8px'; right.style.minHeight = '48px';
         right.style.display = 'flex'; right.style.flexDirection = 'column'; right.style.justifyContent = 'center';
     const given = slot.givenAnswer ? escapeHtml(slot.givenAnswer) : '........';
-    right.innerHTML = `<div style="font-weight:700;color:${slot.noPoint? '#f87171' : '#7ef3d6'}">${given}</div>` + (slot.points? `<div style="opacity:.9;font-size:12px;margin-top:6px">+${slot.points} pts</div>` : '');
+    // Do not visually mark 'noPoint' answers differently — the audience must not know they were marked no-point until scoring
+    right.innerHTML = `<div style="font-weight:700;color:#7ef3d6">${given}</div>` + (slot.points? `<div style="opacity:.9;font-size:12px;margin-top:6px">+${slot.points} pts</div>` : '');
         row.appendChild(left); row.appendChild(right);
         wrap.appendChild(row);
     }
@@ -112,14 +116,18 @@ function handleIncoming(msg){ try{ if(!msg || !msg.type) return; const t = msg.t
                 send({ type: 'quick_game_ready', payload: { qIdx: state.qIdx, position: state.currentPosition } });
             return;
         }
-        if(t === 'team_names'){ const teams = p.teams || []; if(teams[0]) document.getElementById('teamAName').textContent = teams[0]; if(teams[1]) document.getElementById('teamBName').textContent = teams[1]; return; }
+    if(t === 'team_names'){ const teams = p.teams || []; if(teams[0]) document.getElementById('teamAName').textContent = teams[0]; if(teams[1]) document.getElementById('teamBName').textContent = teams[1]; return; }
+    if(t === 'target_update'){ document.getElementById('targetBadge') && (document.getElementById('targetBadge').textContent = `Objetivo: ${p.target || '-'}`); return; }
         if(t === 'quick_game_event'){ const ev = p;
             if(ev.action === 'given'){ // show the given answer but do not award points
                 let slotIndex = -1;
                 if(typeof ev.qIdx !== 'undefined') slotIndex = (state.roundSlots||[]).findIndex(s=>s && s.qIdx === ev.qIdx);
                 if(slotIndex === -1 && state.currentPosition) slotIndex = state.currentPosition - 1;
                 if(slotIndex === -1) slotIndex = (typeof ev.position !== 'undefined' ? (Number(ev.position)-1) : 0);
-                state.roundSlots[slotIndex] = Object.assign({}, state.roundSlots[slotIndex] || {}, { givenAnswer: ev.answerText || '(respuesta)', points: 0, qIdx: ev.qIdx });
+                // ensure question text is present for this slot (fallback to state.question or ev.question)
+                const existing = state.roundSlots[slotIndex] || {};
+                const questionText = existing.question || state.question || ev.question || '(pregunta)';
+                state.roundSlots[slotIndex] = Object.assign({}, existing, { question: questionText, givenAnswer: ev.answerText || '(respuesta)', points: 0, qIdx: ev.qIdx, noPoint: !!ev.noPoint });
                 // set current position for highlighting
                 if(typeof ev.position !== 'undefined') state.currentPosition = Number(ev.position);
                 renderBoardSlots(); return; }
@@ -135,19 +143,31 @@ function handleIncoming(msg){ try{ if(!msg || !msg.type) return; const t = msg.t
                 // update scores
                 if(typeof ev.player !== 'undefined'){ if(ev.player===0) document.getElementById('teamAScore').textContent = Number(document.getElementById('teamAScore').textContent||0) + Number(ev.points||0); else document.getElementById('teamBScore').textContent = Number(document.getElementById('teamBScore').textContent||0) + Number(ev.points||0); }
                 renderBoardSlots(); playConfirm(); return; }
-            if(ev.action === 'repeat' || ev.action === 'repeat_manual'){ // mark as repeated X (if answerIndex provided)
-                let slotIndex = -1;
-                if(typeof ev.qIdx !== 'undefined') slotIndex = (state.roundSlots||[]).findIndex(s=>s && s.qIdx === ev.qIdx);
-                if(slotIndex === -1 && state.currentPosition) slotIndex = state.currentPosition - 1;
-                if(slotIndex === -1) slotIndex = 0;
-                state.roundSlots[slotIndex] = Object.assign({}, state.roundSlots[slotIndex] || {}, { givenAnswer: '(Repetida)', points: 0, qIdx: ev.qIdx });
-                renderBoardSlots(); playInvalid(); return; }
-            if(ev.action === 'reveal'){ // reveal all
-                // Mark current slot as revealed with list of answers concatenated
-                const posIdx = state.currentPosition ? state.currentPosition-1 : 0;
+            if(ev.action === 'repeat' || ev.action === 'repeat_manual'){ // just play a sound marker, do not fill answer
+                // optional: show a brief status text
+                document.getElementById('displayStatus').textContent = 'Repetida: el participante debe decir otra respuesta';
+                try{ playInvalid(); }catch(e){}
+                return; }
+            if(ev.action === 'reveal'){ // reveal only the provided top answer
+                const posIdx = (typeof ev.position !== 'undefined') ? (Number(ev.position)-1) : (state.currentPosition ? state.currentPosition-1 : 0);
                 if(!state.roundSlots[posIdx]) state.roundSlots[posIdx] = {};
-                state.roundSlots[posIdx].givenAnswer = (p.answers||[]).map(a=>a.text||a.name||'').join(' · ');
+                state.roundSlots[posIdx].givenAnswer = ev.answerText || '(respuesta)';
+                state.roundSlots[posIdx].points = ev.points || 0;
                 renderBoardSlots(); return; }
+            if(ev.action === 'reset_slots_for_next_player'){
+                // if fullReset requested, clear questions and answers so next player cannot see them
+                if(ev.fullReset){
+                    state.roundSlots = [null,null,null,null,null];
+                    document.getElementById('questionText').textContent = '(esperando pregunta)';
+                } else {
+                    // clear only givenAnswer/points for next player, keep questions
+                    state.roundSlots = state.roundSlots.map(s=> s ? { question: s.question, givenAnswer:'', points:null, qIdx: s.qIdx } : null);
+                }
+                state.currentPosition = null;
+                renderBoardSlots();
+                document.getElementById('displayStatus').textContent = 'Preparado para Jugador B';
+                return;
+            }
             if(ev.action === 'no_point'){ // mark slot as incorrect / no point
                 const pos = typeof ev.position !== 'undefined' ? Number(ev.position)-1 : ((state.currentPosition?state.currentPosition-1:0));
                 state.roundSlots[pos] = Object.assign({}, state.roundSlots[pos]||{}, { givenAnswer: '(sin punto)', points: 0, noPoint: true });

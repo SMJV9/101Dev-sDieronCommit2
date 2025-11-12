@@ -95,6 +95,19 @@
         <div class="questionCard">
             <div id="questionText" style="font-weight:800;font-size:18px">(sin pregunta)</div>
             <div id="answersList" style="margin-top:10px;color:#9bd;font-size:14px">(respuestas del banco no mostradas al público)</div>
+            <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+                <input id="freeAnswerInput" placeholder="Agregar respuesta (sin puntos)" style="flex:1;padding:6px;border:1px solid #ddd;border-radius:6px;background:#001019;color:#dff" />
+                <button id="addFreeAnswerBtn" style="padding:6px 10px;border-radius:6px;background:#6ee7b7;border:none;color:#012">Agregar sin punto</button>
+            </div>
+        </div>
+
+        <!-- Scoring panel: shown during scoring to award points to each answer in the block -->
+        <div id="scoringPanel" style="display:none;margin-top:12px;background:#051018;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.02)">
+            <h3 style="margin:0 0 8px 0">Panel de puntuación — Jugador: <span id="scoringPlayerLabel">-</span></h3>
+            <div id="scoringList" style="display:flex;flex-direction:column;gap:8px"></div>
+            <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+                <button id="scoringDoneBtn" style="background:linear-gradient(90deg,#059669,#10b981);color:#012;padding:8px;border-radius:8px">Finalizar puntuación</button>
+            </div>
         </div>
 
         <div class="controls" style="margin-bottom:12px">
@@ -201,6 +214,8 @@ async function loadQuestions(){
             control.names = { A: nA, B: nB };
             // notify display of team names
             send({ type: 'team_names', payload: { teams: [nA, nB] } });
+            // notify display of target score
+            send({ type: 'target_update', payload: { target: control.target } });
             // set active player from selector
             const activeSel = document.getElementById('activeSelect'); if(activeSel) control.player = Number(activeSel.value || 0);
             document.getElementById('qTotal').textContent = total;
@@ -223,6 +238,12 @@ function renderCurrentQuestion(){
     const pos = control.position;
     document.getElementById('qIndex').textContent = (pos >= 0 ? pos + 1 : 1);
     document.getElementById('questionText').textContent = q.text;
+    // if the current slot already has a player-provided answer (free-text or recorded), show it instead
+    const playerSlot = (control.playerAnswers && control.playerAnswers[control.player]) ? control.playerAnswers[control.player][control.position] : null;
+    if(playerSlot && playerSlot.answerText){
+        // show the host the given answer but do not color it red; audience should not see it's marked no-point
+        document.getElementById('answersList').innerHTML = `<div style="padding:8px;background:rgba(255,255,255,0.02);border-radius:6px">Respuesta dada: <strong style='color:#7ef3d6;margin-left:8px'>${escapeHtml(playerSlot.answerText||playerSlot.answer||'(respuesta)')}</strong> ${playerSlot.noPoint?'<span style="opacity:.8;margin-left:12px">(sin punto)</span>':''}</div>`;
+    } else {
     // answers list for host only: render as buttons to mark which answer was given
     const answersHtml = (q.answers||[]).map((a,i)=> {
         // during scoring we still want to be able to click answers to award points
@@ -235,11 +256,11 @@ function renderCurrentQuestion(){
             <div style="flex:1">${escapeHtml(a.text)} ${a.used?'<span style="color:#fbb;font-weight:700;margin-left:8px">(usada)</span>':''} · <small style='opacity:.8'>${a.count}</small></div>
             <div style="display:flex;gap:6px">
                 <button class="btn-award" data-index="${i}" ${disabledAttr} ${awaiting}>Acierto</button>
-                <button class="btn-mark-repeat" data-index="${i}" style="background:linear-gradient(90deg,#ef4444,#dc2626);color:#fff" ${disabledAttr} ${awaiting}>Repetida</button>
             </div>
         </div>
     `}).join('');
     document.getElementById('answersList').innerHTML = answersHtml || '(sin respuestas disponibles)';
+    }
     document.getElementById('scoreA').textContent = control.scores.A;
     document.getElementById('scoreB').textContent = control.scores.B;
     document.getElementById('remainingCount').textContent = (control.queue.length - control.position);
@@ -266,6 +287,13 @@ function sendShowQuestion(){
 // Award points during scoring phase (adds to totals)
 function awardPoints(answerIndex){
     if(!control || control.queue.length===0) return;
+    // if this slot was marked as noPoint (free-text), do not allow awarding
+    const playerSlotCheck = (control.playerAnswers && control.playerAnswers[control.player]) ? control.playerAnswers[control.player][control.position] : null;
+    if(playerSlotCheck && playerSlotCheck.noPoint){
+        status('Esta respuesta está marcada como SIN PUNTO y no puede ser puntuada');
+        try{ playInvalidSound(); }catch(e){}
+        return;
+    }
     const qIdx = control.queue[control.position];
     const q = control.questions[qIdx];
     const ans = q.answers && q.answers[answerIndex];
@@ -285,6 +313,29 @@ function awardPoints(answerIndex){
     checkTarget();
 }
 
+// Award points for scoring panel slot (uses recorded playerAnswers points)
+function awardPointsForSlot(slotIndex){
+    if(!control) return;
+    const answers = control.playerAnswers && control.playerAnswers[control.player] ? control.playerAnswers[control.player] : [];
+    const entry = answers[slotIndex];
+    if(!entry){ status('No hay respuesta registrada en esta posición'); playInvalidSound(); return; }
+    if(entry.scored){ status('Respuesta ya puntuada'); playInvalidSound(); return; }
+    const pts = Number(entry.points || 0);
+    // determine recipient
+    const recipient = (document.getElementById('pointsToSelect') || {}).value || 'A';
+    const recipientPlayer = recipient === 'A' ? 0 : 1;
+    if(recipientPlayer === 0) control.scores.A += pts; else control.scores.B += pts;
+    entry.scored = true;
+    // notify display: use action 'correct' with qIdx and points
+    send({ type:'quick_game_event', payload:{ action:'correct', team: control.team, player: recipientPlayer, qIdx: entry.qIdx, position: slotIndex+1, answerText: entry.answerText, points: pts } });
+    status(`Puntuado (slot ${slotIndex+1}): +${pts} pts al ${recipient === 'A' ? 'Jugador A' : 'Jugador B'}`);
+    try{ playConfirmSound(); }catch(e){}
+    renderCurrentQuestion(); updateRemainingPointsDisplay(); checkTarget();
+    // update scoring panel UI (disable button)
+    const btn = document.querySelector(`#scoringList button[data-index='${slotIndex}']`);
+    if(btn){ btn.disabled = true; btn.style.opacity = 0.5; }
+}
+
 // Record the answer given by the active player (no points awarded now)
 function recordGivenAnswer(answerIndex){
     if(!control || control.queue.length===0) return;
@@ -295,9 +346,11 @@ function recordGivenAnswer(answerIndex){
     if(ans && ans.scored){ log('Respuesta ya puntuada'); playInvalidSound(); return; }
     // store in playerAnswers for later scoring
     if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player] = [];
-    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: answerIndex, answerText: text, points: (ans?Number(ans.count||0):0) };
+    const entry = { qIdx: qIdx, answerIndex: answerIndex, answerText: text, points: (ans?Number(ans.count||0):0) };
+    control.playerAnswers[control.player][control.position] = entry;
     // notify display of the given answer (but do not award points yet)
-    send({ type:'quick_game_event', payload:{ action:'given', team: control.team, player: control.player, qIdx: qIdx, position: control.position+1, answerIndex: answerIndex, answerText: text } });
+    const payload = { action:'given', team: control.team, player: control.player, qIdx: qIdx, position: control.position+1, answerIndex: answerIndex, answerText: text };
+    send({ type:'quick_game_event', payload: payload });
     status(`Respuesta registrada: ${text}`);
     // advance to next question for this player
     control.position += 1;
@@ -313,33 +366,27 @@ function checkTarget(){ if(!control) return; updateRemainingPointsDisplay(); con
 
 
 function markRepeat(answerIndex){
-    if(!control || control.queue.length===0) return;
-    const qIdx = control.queue[control.position];
-    const q = control.questions[qIdx];
-    const ans = q.answers && q.answers[answerIndex];
-    // do not mark answer as globally 'used' here — we track given answers per player in control.playerAnswers
-    // record as given but flagged repeated
-    if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player] = [];
-    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: answerIndex, answerText: ans ? ans.text : '(repetida)', points: 0, repeated: true };
-    send({ type:'quick_game_event', payload:{ action:'repeat', team: control.team, player: control.player, qIdx: qIdx, answerIndex: answerIndex, answerText: ans ? ans.text : '' } });
-    log('Marcada como repetida (X)');
+    // When the host triggers 'repeat' we only play the sound and notify the display
+    if(!control) return;
     try{ playInvalidSound(); }catch(e){}
-    // advance to next question
-    control.position += 1;
-    if(control.position >= control.queue.length){ enterScoringMode(); } else { renderCurrentQuestion(); sendShowQuestion(); }
-    updateRemainingPointsDisplay();
+    send({ type:'quick_game_event', payload:{ action:'repeat_manual', team: control.team, player: control.player } });
+    log('Repetida solicitada — sonido reproducido, el jugador debe decir otra respuesta');
 }
 
 function actionReveal(){
     if(!control || control.queue.length===0) return;
     const qIdx = control.queue[control.position];
     const q = control.questions[qIdx];
-    send({ type:'quick_game_event', payload:{ action:'reveal', team: control.team, player: control.player, qIdx: qIdx, answers: q.answers || [], position: control.position+1 } });
-    log('Reveladas respuestas (host)');
+    // reveal only the answer with the highest points (to avoid showing all)
+    let top = null;
+    (q.answers||[]).forEach(a=>{ if(!top || (Number(a.count||0) > Number(top.count||0))){ top = a; } });
+    const payload = top ? { action:'reveal', team: control.team, player: control.player, qIdx: qIdx, answerText: top.text || top.name || '(respuesta)', points: Number(top.count||0), position: control.position+1 } : { action:'reveal', team: control.team, player: control.player, qIdx: qIdx, answerText: '(sin respuestas)', points: 0, position: control.position+1 };
+    send({ type:'quick_game_event', payload });
+    log('Revelada respuesta principal (host)');
     (q.answers||[]).forEach(a=>{ a.revealed = true; });
     // mark as given for this player with combined reveal
     if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player] = [];
-    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: null, answerText: (q.answers||[]).map(a=>a.text||'').join(' · '), points:0, revealed:true };
+    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: null, answerText: (top? (top.text||top.name||'') : ''), points:(top?Number(top.count||0):0), revealed:true };
     control.position += 1;
     if(control.position >= control.queue.length){ enterScoringMode(); } else { renderCurrentQuestion(); sendShowQuestion(); }
 }
@@ -365,17 +412,37 @@ function nextQuestion(){
     sendShowQuestion();
 }
 
-function startTurnTimer(){ if(!control) return; clearInterval(control.timerId); control.timer = control.secondsPerTurn || 60; document.getElementById('turnTimer').textContent = control.timer; control.timerId = setInterval(()=>{ control.timer -= 1; document.getElementById('turnTimer').textContent = control.timer; if(control.timer <= 0){ clearInterval(control.timerId); // time up for the whole block -> enter scoring for this player
-        status('Tiempo acabado — entrando a fase de puntuación');
-        enterScoringMode();
+function startTurnTimer(){ if(!control) return; // guard: don't start if timer already running for this block
+    if(control.blockTimerStarted && control.timerId){ console.debug('startTurnTimer: timer already running, skip'); return; }
+    control.blockTimerStarted = true;
+    clearInterval(control.timerId); control.timer = control.secondsPerTurn || 60; document.getElementById('turnTimer').textContent = control.timer; control.timerId = setInterval(()=>{ control.timer -= 1; document.getElementById('turnTimer').textContent = control.timer; if(control.timer <= 0){ clearInterval(control.timerId); // time up for the whole block -> enter scoring for this player
+    // mark that timer expired for this block and enter scoring mode
+    control.timerExpired = true;
+    status('Tiempo acabado — entrando a fase de puntuación');
+    enterScoringMode();
     } }, 1000); }
 
 function enterScoringMode(){
     if(!control) return;
-    clearInterval(control.timerId);
+    // stop any running timer for the block
+    try{ clearInterval(control.timerId); }catch(e){}
+    control.timerId = null;
     control.scoringMode = true;
     // move to position 0 to allow scoring from first question
     control.position = 0;
+    // populate scoring panel with the player's recorded answers (or placeholders)
+    const scoringList = document.getElementById('scoringList'); scoringList.innerHTML = '';
+    document.getElementById('scoringPlayerLabel').textContent = control.player===0 ? (control.names && control.names.A ? control.names.A : 'Jugador A') : (control.names && control.names.B ? control.names.B : 'Jugador B');
+    const answers = control.playerAnswers && control.playerAnswers[control.player] ? control.playerAnswers[control.player] : [];
+    for(let i=0;i<control.queue.length;i++){
+        const entry = answers[i] || { answerText: '--------', points: 0, qIdx: control.queue[i] };
+        const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.background='rgba(255,255,255,0.02)'; div.style.padding='8px'; div.style.borderRadius='6px';
+        div.innerHTML = `<div style="flex:1">${escapeHtml(entry.answerText||'--------')}</div><div style="display:flex;gap:8px;align-items:center"><div style="min-width:60px;text-align:right">${entry.points?entry.points:0} pts</div><button class='btn-award-scoring' data-index='${i}' style='padding:6px;border-radius:6px;background:#06b6d4;border:none;color:#012'>+Puntar</button></div>`;
+        scoringList.appendChild(div);
+    }
+    document.getElementById('scoringPanel').style.display = '';
+    // adjust Finish button label depending on whether timer expired
+    const fsBtn = document.getElementById('btnFinishScoring'); if(fsBtn){ fsBtn.textContent = control.timerExpired ? 'Finalizar tiempo' : 'Finalizar puntuación'; }
     // show finish scoring button
     const fs = document.getElementById('btnFinishScoring'); if(fs) fs.style.display = ''; 
     const np = document.getElementById('btnNoPoint'); if(np) np.style.display = '';
@@ -390,19 +457,30 @@ function enterScoringMode(){
 function finishScoring(){
     if(!control) return;
     control.scoringMode = false;
+    // hide scoring panel
+    document.getElementById('scoringPanel').style.display = 'none';
     const fs = document.getElementById('btnFinishScoring'); if(fs) fs.style.display = 'none';
     const np = document.getElementById('btnNoPoint'); if(np) np.style.display = 'none';
     document.getElementById('btnStartScoring').style.display = '';
     status('Puntuación finalizada para jugador');
     // notify display
     send({ type:'quick_game_event', payload:{ action:'scoring_end', team: control.team, player: control.player, scores: control.scores } });
+    // when finishing scoring for player 0, send a reset to display so the board clears for the next player
+    if(control.player === 0){
+        // instruct display to fully clear questions/answers so next player cannot see them
+        send({ type:'quick_game_event', payload:{ action:'reset_slots_for_next_player', team: control.team, fullReset: true } });
+    }
     // switch to next player or finish
     control.position = 0;
     if(control.player === 0){
         control.player = 1;
         // send first question for next player
         status('Ahora Jugador B — enviando primera pregunta (esperando confirmación del display)');
+        // reset block timer flag and start timer for the next player's block
+        control.blockTimerStarted = false;
+        control.timerExpired = false;
         sendShowQuestion();
+        if(!control.blockTimerStarted){ control.blockTimerStarted = true; startTurnTimer(); }
     } else {
         finishGame();
     }
@@ -431,6 +509,8 @@ function finishGame(){ clearInterval(control.timerId); send({ type:'quick_game_e
 document.getElementById('loadBtn').addEventListener('click', loadQuestions);
 document.getElementById('startBtn').addEventListener('click', ()=>{ if(!control){ alert('Carga preguntas primero'); return; } // send first question but wait for display ack before starting timer/actions
     status('Juego iniciado — enviando primera pregunta (esperando confirmación del display)');
+    // start block timer once when we start the game (timer covers whole block)
+    if(!control.blockTimerStarted){ control.blockTimerStarted = true; startTurnTimer(); }
     sendShowQuestion();
 });
 // ping display for quick connectivity test
@@ -442,11 +522,41 @@ document.getElementById('answersList').addEventListener('click', (ev)=>{
     // if we're in scoringMode, awardPoints should be used to add points; otherwise record the given answer
     if(control && control.scoringMode){
         if(btn.classList.contains('btn-award')){ awardPoints(idx); }
-        else if(btn.classList.contains('btn-mark-repeat')){ markRepeat(idx); }
     } else {
         if(btn.classList.contains('btn-award')){ recordGivenAnswer(idx); }
-        else if(btn.classList.contains('btn-mark-repeat')){ markRepeat(idx); }
     }
+});
+
+// scoring panel buttons (delegate)
+document.getElementById('scoringList').addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('button'); if(!btn) return;
+    if(btn.classList.contains('btn-award-scoring')){
+        const idx = Number(btn.getAttribute('data-index'));
+        awardPointsForSlot(idx);
+    }
+});
+
+// finish scoring button
+document.getElementById('scoringDoneBtn').addEventListener('click', ()=>{
+    if(confirm('Finalizar puntuación para este jugador?')) finishScoring();
+});
+
+// free-text add without points
+document.getElementById('addFreeAnswerBtn').addEventListener('click', ()=>{
+    const txt = document.getElementById('freeAnswerInput').value.trim();
+    if(!txt) return playInvalidSound();
+    if(!control) return;
+    const qIdx = control.queue[control.position];
+    // store locally
+    if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player]=[];
+    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: null, answerText: txt, points: 0, noPoint: true };
+    // notify display
+    send({ type:'quick_game_event', payload:{ action:'given', team: control.team, player: control.player, qIdx: qIdx, position: control.position+1, answerText: txt, points:0, noPoint:true } });
+    status('Respuesta (sin punto) agregada');
+    document.getElementById('freeAnswerInput').value = '';
+    // advance
+    control.position += 1;
+    if(control.position >= control.queue.length){ enterScoringMode(); } else { renderCurrentQuestion(); sendShowQuestion(); }
 });
 // update names UI and notify display when name inputs change
 const nameAEl = document.getElementById('nameA'); const nameBEl = document.getElementById('nameB');
@@ -483,7 +593,9 @@ document.getElementById('btnEnd').addEventListener('click', ()=>{ if(confirm('Fi
 // handle incoming messages (BroadcastChannel or storage fallback)
 function handleIncoming(msg){ try{ if(!msg || !msg.type) return; if(msg.type === 'quick_game_ready'){ const p = msg.payload || {}; // ensure this ack matches the question we sent
                     if(control && control.awaitingReady && (typeof p.qIdx !== 'undefined') && p.qIdx === control.awaitingQIdx){
-                        control.awaitingReady = false; control.awaitingQIdx = null; if(control._readyTimeout){ clearTimeout(control._readyTimeout); control._readyTimeout = null; } status('Display confirmó Listo — comenzando turno'); setControlsEnabled(true); startTurnTimer();
+                        control.awaitingReady = false; control.awaitingQIdx = null; if(control._readyTimeout){ clearTimeout(control._readyTimeout); control._readyTimeout = null; } status('Display confirmó Listo — comenzando turno'); setControlsEnabled(true);
+                        // do nothing regarding timers here — timer is started from Start button and should not restart on ack
+                        if(document.getElementById('turnTimer')) document.getElementById('turnTimer').textContent = control.timer || control.secondsPerTurn;
             } else {
                 // ack doesn't match current question — ignore
                 console.debug('quick_game_ready ignored', p);
