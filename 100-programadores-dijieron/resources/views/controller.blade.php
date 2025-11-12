@@ -65,6 +65,8 @@
             <button id="startRound">Iniciar ronda</button>
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
+                <button id="quickGameBtn" style="margin-left:10px;background:linear-gradient(135deg,#06b6d4 0%, #06b6d4 100%);color:#042022">⚡ Juego rápido (Control)</button>
+                <button id="quickGameDisplayBtn" style="margin-left:6px;background:linear-gradient(90deg,#06d6a0,#06b6d4);color:#042022">🖥️ Abrir tablero rápido</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
             <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
@@ -1385,6 +1387,137 @@ try{
 }catch(e){
     console.error('Error loading question from bank:', e);
 }
+
+// ===== Juego rápido (2 personas por equipo, 5 preguntas cada uno) =====
+const quickGameBtn = document.getElementById('quickGameBtn');
+let quickGameState = null; // holds current quick game data
+
+function playXSound(){
+    // Use the existing error sound as the 'X' audio cue
+    playErrorSound();
+}
+
+async function startQuickGame(){
+    // Open the quick game control page in a new tab (host controls questions and reveals)
+    window.open('/quickgame-control', '_blank');
+}
+
+function openQuickGameUI(){
+    // build a simple modal-like panel
+    let panel = document.getElementById('quickGamePanel');
+    if(!panel){
+        panel = document.createElement('div'); panel.id='quickGamePanel';
+        Object.assign(panel.style, {position:'fixed',right:'20px',bottom:'20px',width:'420px',background:'#081018',color:'#cde',padding:'12px',border:'1px solid rgba(102,252,241,0.12)',borderRadius:'8px',zIndex:9999});
+        document.body.appendChild(panel);
+    }
+    renderQuickGamePanel();
+}
+
+function renderQuickGamePanel(){
+    const p = quickGameState;
+    const panel = document.getElementById('quickGamePanel'); if(!panel) return;
+    const currentPlayerName = p.players[p.currentPlayer];
+    const qlist = p.currentPlayer === 0 ? p.qA : p.qB;
+    const qObj = qlist[p.currentIndex];
+
+    panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong>Juego rápido — ${escapeHtml(p.team)}</strong><button id="quickClose" style="background:transparent;color:#9bd;">✖</button></div>
+        <div style="margin-bottom:8px">Turno: <strong>${escapeHtml(currentPlayerName)}</strong> — Pregunta ${p.currentIndex+1}/${qlist.length}</div>
+        <div style="background:#051018;padding:8px;border-radius:6px;margin-bottom:8px"><div style="font-weight:700">${escapeHtml(qObj.name)}</div></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px"><input id="quickAnswerInput" placeholder="Escribe la respuesta" style="flex:1;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:#00101a;color:#dff"/></div>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button id="quickSubmit">Enviar</button><button id="quickSkip">Saltar</button></div>
+        <hr style="margin:10px 0;border-color:rgba(255,255,255,0.03)"/>
+        <div style="font-size:13px;color:#9bd">Puntos — ${escapeHtml(p.players[0])}: <strong id="scoreA">${p.scoreA}</strong> • ${escapeHtml(p.players[1])}: <strong id="scoreB">${p.scoreB}</strong></div>
+        <div style="margin-top:8px;font-size:12px;color:#8aa">(Respuestas repetidas son marcadas con X y no puntúan)</div>
+    `;
+
+    document.getElementById('quickClose').addEventListener('click', ()=>{ document.getElementById('quickGamePanel').remove(); quickGameState=null; sendMessage({type:'quick_game_end', payload:{aborted:true}}); });
+    document.getElementById('quickSubmit').addEventListener('click', onQuickSubmit);
+    document.getElementById('quickSkip').addEventListener('click', onQuickSkip);
+    const inp = document.getElementById('quickAnswerInput'); if(inp) inp.focus();
+}
+
+function onQuickSkip(){
+    // treat as 0 points and advance
+    advanceQuickGame(null, 0, false, true);
+}
+
+function normalizeAnswer(s){ return (s||'').trim().toLowerCase(); }
+
+function findMatchPoints(qObj, submitted){
+    if(!qObj || !Array.isArray(qObj.answers)) return 0;
+    const norm = normalizeAnswer(submitted);
+    for(const a of qObj.answers){
+        if((a.text||'').trim().toLowerCase() === norm){
+            return Number(a.count) || 0;
+        }
+    }
+    return 0;
+}
+
+function onQuickSubmit(){
+    const inp = document.getElementById('quickAnswerInput'); if(!inp) return; const val = inp.value || '';
+    const norm = normalizeAnswer(val);
+    const p = quickGameState; if(!p) return;
+    if(!norm){ alert('Escribe una respuesta'); return; }
+
+    // detect repeats across both players answers
+    const allSubmitted = p.answersA.concat(p.answersB).map(x=> normalizeAnswer(x.text));
+    const isRepeat = allSubmitted.includes(norm);
+    if(isRepeat){
+        // play X sound and mark as repeated
+        playXSound();
+        advanceQuickGame(val, 0, true, false);
+        return;
+    }
+
+    // get current question object
+    const qlist = p.currentPlayer === 0 ? p.qA : p.qB;
+    const qObj = qlist[p.currentIndex];
+    const pts = findMatchPoints(qObj, val);
+    advanceQuickGame(val, pts, false, false);
+}
+
+function advanceQuickGame(submittedText, pointsAwarded, isRepeat, skipped){
+    const p = quickGameState; if(!p) return;
+    const entry = {text: submittedText || '', points: Number(pointsAwarded)||0, repeat: !!isRepeat, skipped: !!skipped};
+    if(p.currentPlayer === 0) { p.answersA.push(entry); p.scoreA += entry.points; }
+    else { p.answersB.push(entry); p.scoreB += entry.points; }
+
+    // inform board of update
+    sendMessage({type:'quick_game_update', payload:{team:p.team, playerIndex:p.currentPlayer, qIndex:p.currentIndex, answer: entry.text, points: entry.points, repeat: entry.repeat}});
+
+    // advance index or player
+    const qlist = p.currentPlayer === 0 ? p.qA : p.qB;
+    p.currentIndex++;
+    if(p.currentIndex >= qlist.length){
+        // switch to next player or finish
+        if(p.currentPlayer === 0){ p.currentPlayer = 1; p.currentIndex = 0; }
+        else { finishQuickGame(); return; }
+    }
+
+    renderQuickGamePanel();
+}
+
+function finishQuickGame(){
+    const p = quickGameState; if(!p) return;
+    const winner = p.scoreA > p.scoreB ? {player: p.players[0], score:p.scoreA} : p.scoreB > p.scoreA ? {player: p.players[1], score:p.scoreB} : null;
+    let msg = `Resultados - ${p.players[0]}: ${p.scoreA} · ${p.players[1]}: ${p.scoreB}`;
+    if(winner) msg += `\nGanador: ${winner.player} (${winner.score} pts)`; else msg += '\nEmpate';
+    alert(msg);
+
+    // send final message to board
+    sendMessage({type:'quick_game_end', payload:{team:p.team, scores:{[p.players[0]]:p.scoreA, [p.players[1]]:p.scoreB}, winner: winner ? winner.player : null}});
+
+    // remove panel
+    const panel = document.getElementById('quickGamePanel'); if(panel) panel.remove(); quickGameState = null;
+}
+
+// wire start button
+if(quickGameBtn){ quickGameBtn.addEventListener('click', startQuickGame); }
+const quickGameDisplayBtn = document.getElementById('quickGameDisplayBtn');
+if(quickGameDisplayBtn){ quickGameDisplayBtn.addEventListener('click', ()=>{ window.open('/quickgame-display', '_blank'); }); }
+
 </script>
 </body>
 </html>

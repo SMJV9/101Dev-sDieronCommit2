@@ -13,6 +13,10 @@ Route::get('/controller', [GameController::class, 'controller'])->name('controll
 Route::get('/questions', function () {
     return view('questions');
 })->name('questions');
+// Ruta para Juego Rápido (página completa)
+Route::get('/quick-game', function(){ return view('quickgame'); })->name('quickgame');
+Route::get('/quickgame-control', function(){ return view('quickgame_control'); })->name('quickgame.control');
+Route::get('/quickgame-display', function(){ return view('quickgame_display'); })->name('quickgame.display');
 Route::post('/round/allocate', [GameController::class, 'allocate'])->name('round.allocate');
 
 // API Routes para gestión de preguntas

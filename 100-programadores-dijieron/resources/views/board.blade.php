@@ -108,6 +108,8 @@
 </div>
 
 <script>
+// Silence console output for cleaner public UI
+try{ console.log = function(){}; console.debug = function(){}; }catch(e){}
 // Keep the same messaging contract: BroadcastChannel primary, localStorage fallback
 let channel = null; let usingBroadcast = false;
 try{ if (typeof BroadcastChannel !== 'undefined'){ channel = new BroadcastChannel('game-100mx'); usingBroadcast = true; document.getElementById('connType').textContent = 'BroadcastChannel'; console.debug('[board] bc open'); } }catch(e){ console.debug('[board] bc err', e); }
