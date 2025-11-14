@@ -107,6 +107,16 @@
     </div>
 </div>
 
+<!-- Teatro Telón para cambio de rondas -->
+<div id="curtainOverlay" class="curtain-overlay" style="display:none;">
+    <div class="curtain-left"></div>
+    <div class="curtain-right"></div>
+    <div id="roundTransitionMessage" class="round-transition-message">
+        <h1 id="roundTransitionTitle">RONDA 2</h1>
+        <p id="roundTransitionSubtitle">¡Preparando nueva ronda!</p>
+    </div>
+</div>
+
 <script>
 // Silence console output for cleaner public UI
 try{ console.log = function(){}; console.debug = function(){}; }catch(e){}
@@ -321,10 +331,19 @@ function handleIncoming(msg){
         currentRound.accumulatedPoints = 0; // reset accumulated points for new round
         roundReadySent = false;
         document.getElementById('roundPointsDisplay').textContent = '0'; // start at 0
+        
         // Update round number display
         const roundNum = Number((msg.payload && msg.payload.roundNumber) || 1);
         const roundNumEl = document.getElementById('roundNumberDisplay');
         if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNum}`;
+        
+        // 🎭 MOSTRAR TELÓN TEATRAL para cambio de ronda (excepto ronda 1)
+        if(roundNum > 1) {
+            const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+            const multiplierText = multiplier > 1 ? ` — ${multiplier === 2 ? 'DOBLE' : 'TRIPLE'} PUNTOS` : '';
+            showCurtainTransition(roundNum, `¡Que comience el desafío!${multiplierText}`);
+        }
+        
         // Update multiplier display
         const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
         const multiplierEl = document.getElementById('multiplierDisplay');
@@ -440,6 +459,9 @@ function handleIncoming(msg){
             persistTeamScores();
             renderTeamScores();
         }
+    } else if(msg.type === 'round_finish_curtain'){
+        // Mostrar telón teatral para finalización de ronda
+        showRoundFinishCurtain();
     } else if(msg.type === 'reset_all'){
         // Complete reset of everything
         console.log('[board] ===== RESET ALL INICIADO =====');
@@ -551,6 +573,120 @@ function showStealBanner(team, points){
         overlay.style.opacity = '0';
         setTimeout(()=>{ overlay.style.display = 'none'; }, 400);
     }, 2200);
+}
+
+// ===== TEATRO TELON FUNCTIONS =====
+function playCurtainSound() {
+    // Sonido de telón: Un sonido suave y dramático como de teatro
+    try {
+        const oscillator1 = audioContext.createOscillator();
+        const oscillator2 = audioContext.createOscillator();
+        const gainNode1 = audioContext.createGain();
+        const gainNode2 = audioContext.createGain();
+        
+        oscillator1.connect(gainNode1);
+        oscillator2.connect(gainNode2);
+        gainNode1.connect(audioContext.destination);
+        gainNode2.connect(audioContext.destination);
+        
+        // Acordes dramáticos
+        oscillator1.frequency.value = 220; // A3
+        oscillator2.frequency.value = 330; // E4
+        oscillator1.type = 'sine';
+        oscillator2.type = 'sine';
+        
+        gainNode1.gain.setValueAtTime(0.1, audioContext.currentTime);
+        gainNode1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2.0);
+        gainNode2.gain.setValueAtTime(0.08, audioContext.currentTime);
+        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 2.0);
+        
+        oscillator1.start(audioContext.currentTime);
+        oscillator2.start(audioContext.currentTime);
+        oscillator1.stop(audioContext.currentTime + 2.0);
+        oscillator2.stop(audioContext.currentTime + 2.0);
+        
+        console.log('🎭 Sonido de telón teatral');
+    } catch(e) {
+        console.log('Error reproduciendo sonido de telón:', e);
+    }
+}
+
+function showCurtainTransition(roundNumber, subtitle) {
+    const curtainOverlay = document.getElementById('curtainOverlay');
+    const roundTitle = document.getElementById('roundTransitionTitle');
+    const roundSubtitle = document.getElementById('roundTransitionSubtitle');
+    const message = document.getElementById('roundTransitionMessage');
+    
+    if (!curtainOverlay) return;
+    
+    // Configurar el mensaje
+    if (roundTitle) roundTitle.textContent = `RONDA ${roundNumber}`;
+    if (roundSubtitle) roundSubtitle.textContent = subtitle || '¡Preparando nueva ronda!';
+    
+    // Mostrar overlay y iniciar animación de cierre
+    curtainOverlay.style.display = 'flex';
+    curtainOverlay.className = 'curtain-overlay curtain-closing';
+    
+    // Reproducir sonido teatral
+    playCurtainSound();
+    
+    // Mostrar mensaje después de que se cierre el telón
+    setTimeout(() => {
+        if (message) message.classList.add('message-visible');
+    }, 1800);
+    
+    // Abrir telón después de mostrar el mensaje
+    setTimeout(() => {
+        curtainOverlay.className = 'curtain-overlay curtain-opening';
+    }, 4000);
+    
+    // Ocultar completamente después de la animación
+    setTimeout(() => {
+        curtainOverlay.style.display = 'none';
+        curtainOverlay.className = 'curtain-overlay';
+        if (message) message.classList.remove('message-visible');
+    }, 5200);
+    
+    console.log(`🎭 Transición de telón para Ronda ${roundNumber}`);
+}
+
+function showRoundFinishCurtain() {
+    const curtainOverlay = document.getElementById('curtainOverlay');
+    const roundTitle = document.getElementById('roundTransitionTitle');
+    const roundSubtitle = document.getElementById('roundTransitionSubtitle');
+    const message = document.getElementById('roundTransitionMessage');
+    
+    if (!curtainOverlay) return;
+    
+    // Configurar mensaje de finalización
+    if (roundTitle) roundTitle.textContent = '¡RONDA TERMINADA!';
+    if (roundSubtitle) roundSubtitle.textContent = 'Revelando respuestas restantes...';
+    
+    // Mostrar overlay y cerrar telón
+    curtainOverlay.style.display = 'flex';
+    curtainOverlay.className = 'curtain-overlay curtain-closing';
+    
+    // Reproducir sonido
+    playCurtainSound();
+    
+    // Mostrar mensaje
+    setTimeout(() => {
+        if (message) message.classList.add('message-visible');
+    }, 1800);
+    
+    // Abrir telón más rápido para la finalización
+    setTimeout(() => {
+        curtainOverlay.className = 'curtain-overlay curtain-opening';
+    }, 3000);
+    
+    // Ocultar
+    setTimeout(() => {
+        curtainOverlay.style.display = 'none';
+        curtainOverlay.className = 'curtain-overlay';
+        if (message) message.classList.remove('message-visible');
+    }, 4200);
+    
+    console.log('🎭 Telón de finalización de ronda');
 }
 </script>
 

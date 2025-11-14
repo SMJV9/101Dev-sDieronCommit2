@@ -189,3 +189,184 @@ html,body{
     .dashboard .board-wrapper{flex-direction:column;align-items:stretch} 
     .panel{order:2} 
 }
+
+/* ===== TEATRO TELON ANIMATIONS ===== */
+.curtain-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    pointer-events: none;
+    display: flex;
+    overflow: hidden;
+}
+
+.curtain-left, .curtain-right {
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        to bottom,
+        #8b0000 0%,
+        #a00000 15%,
+        #dc143c 25%,
+        #b22222 45%,
+        #8b0000 65%,
+        #654321 85%,
+        #2f1b14 100%
+    );
+    position: relative;
+    box-shadow: inset -10px 0 30px rgba(0,0,0,0.8);
+    border: 2px solid #654321;
+}
+
+.curtain-left {
+    border-right: none;
+    transform: translateX(-100%);
+}
+
+.curtain-right {
+    border-left: none;
+    transform: translateX(100%);
+}
+
+/* Texturas y pliegues del telón */
+.curtain-left::before, .curtain-right::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        rgba(0,0,0,0.1) 0px,
+        transparent 2px,
+        transparent 8px,
+        rgba(0,0,0,0.1) 10px
+    ),
+    repeating-linear-gradient(
+        0deg,
+        rgba(255,255,255,0.05) 0px,
+        transparent 1px,
+        transparent 20px,
+        rgba(255,255,255,0.05) 21px
+    );
+}
+
+/* Animación de cierre */
+.curtain-closing .curtain-left {
+    animation: curtainCloseLeft 1.5s ease-in-out forwards;
+}
+
+.curtain-closing .curtain-right {
+    animation: curtainCloseRight 1.5s ease-in-out forwards;
+}
+
+/* Animación de apertura */
+.curtain-opening .curtain-left {
+    animation: curtainOpenLeft 1.2s ease-out forwards;
+}
+
+.curtain-opening .curtain-right {
+    animation: curtainOpenRight 1.2s ease-out forwards;
+}
+
+@keyframes curtainCloseLeft {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes curtainCloseRight {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
+}
+
+@keyframes curtainOpenLeft {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-100%); }
+}
+
+@keyframes curtainOpenRight {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+}
+
+/* Mensaje de cambio de ronda */
+.round-transition-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ffd700;
+    z-index: 10001;
+    opacity: 0;
+    font-family: 'Fira Code', monospace;
+}
+
+.round-transition-message h1 {
+    font-size: 4rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.8),
+                 0 0 60px rgba(255, 215, 0, 0.6),
+                 0 4px 8px rgba(0,0,0,0.8);
+    letter-spacing: 3px;
+}
+
+.round-transition-message p {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.8),
+                 0 2px 4px rgba(0,0,0,0.8);
+    letter-spacing: 2px;
+}
+
+.message-visible {
+    animation: messageAppear 0.8s ease-out 0s forwards;
+}
+
+@keyframes messageAppear {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Efectos de brillo en los bordes del telón */
+.curtain-left::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 20px;
+    height: 100%;
+    background: linear-gradient(
+        to right,
+        transparent 0%,
+        rgba(255, 215, 0, 0.3) 50%,
+        rgba(255, 215, 0, 0.6) 100%
+    );
+}
+
+.curtain-right::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 20px;
+    height: 100%;
+    background: linear-gradient(
+        to left,
+        transparent 0%,
+        rgba(255, 215, 0, 0.3) 50%,
+        rgba(255, 215, 0, 0.6) 100%
+    );
+}

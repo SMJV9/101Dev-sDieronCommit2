@@ -285,7 +285,7 @@ function render() {
                     <input type="number" data-idx-count="${i}" value="${a.count}" style="width:60px;margin-left:8px" readonly />
                 </div>
                 <div>
-                    <button data-action="reveal" data-idx="${i}">Revelar</button>
+                    
                     <button data-action="correct" data-idx="${i}" title="Marcar como acertada" ${a.correct ? 'disabled' : ''}>Acierto</button>
                     <button data-action="hide" data-idx="${i}">Ocultar</button>
                     <button data-action="remove" data-idx="${i}">Eliminar</button>
@@ -539,7 +539,15 @@ finishRoundBtn.addEventListener('click', ()=>{
     
     console.log('🏁 Finalizando ronda - revelando', unrevealedIdx.length, 'respuestas con delay');
 
-    // Revelar una por una con delay sin sumar puntos
+    // 🎭 Agregar efecto teatral al botón de finalizar
+    finishRoundBtn.classList.add('curtain-effect');
+    finishRoundBtn.textContent = '🎭 Telón en marcha...';
+    finishRoundBtn.disabled = true;
+
+    // 🎭 Enviar señal al board para mostrar telón de finalización
+    sendMessage({type:'round_finish_curtain', payload:{unrevealedCount: unrevealedIdx.length}});
+
+    // Revelar una por una con delay sin sumar puntos (delay mayor para sincronizar con telón)
     unrevealedIdx.forEach((idx, order)=>{
         setTimeout(()=>{
             if(answers[idx]){
@@ -552,13 +560,18 @@ finishRoundBtn.addEventListener('click', ()=>{
                 sendMessage({type:'reveal', payload:{index: idx}});
                 render();
             }
-        }, order * 600); // 600ms entre cada revelado
+        }, 3000 + (order * 600)); // 3 segundos para el telón + 600ms entre revelados
     });
 
-    // Log al finalizar toda la secuencia
+    // Log al finalizar toda la secuencia y restaurar botón
     setTimeout(()=>{
         console.log('✅ Todas las respuestas reveladas. Puntos acumulados:', currentRound.accumulatedPoints || 0);
-    }, unrevealedIdx.length * 600 + 100);
+        
+        // 🎭 Restaurar botón de finalizar
+        finishRoundBtn.classList.remove('curtain-effect');
+        finishRoundBtn.textContent = '🏁 Finalizar ronda';
+        finishRoundBtn.disabled = false;
+    }, 3000 + (unrevealedIdx.length * 600) + 100);
 });
 
 // Common routine to transition to a new round
@@ -567,6 +580,13 @@ function runRound(teamNames, keepScores){
     startRoundBtn.disabled = true;
     nextRoundBtn.disabled = true;
     const originalText = startRoundBtn.textContent;
+    
+    // 🎭 Agregar efecto teatral si no es la primera ronda
+    if(roundNumber > 1) {
+        nextRoundBtn.classList.add('curtain-effect');
+        startRoundBtn.classList.add('curtain-effect');
+        console.log('🎭 Preparando transición teatral para Ronda', roundNumber);
+    }
     
     // countdown from 5 to 1
     let countdown = 5;
@@ -588,6 +608,10 @@ function runRound(teamNames, keepScores){
             
             // hide countdown on board
             sendMessage({type:'countdown', payload:{count: 0}});
+            
+            // 🎭 Quitar efectos teatrales de los botones
+            nextRoundBtn.classList.remove('curtain-effect');
+            startRoundBtn.classList.remove('curtain-effect');
             
             // clear answers but keep team scores
             answers = [];
