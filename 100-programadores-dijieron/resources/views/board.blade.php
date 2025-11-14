@@ -99,13 +99,8 @@
     </div>
 </div>
 
-<!-- Countdown overlay -->
-<div id="countdownOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;">
-    <div style="text-align:center;">
-        <div id="countdownNumber" style="font-size:160px;font-weight:900;color:#00e5ff;text-shadow:0 0 60px rgba(0,229,255,0.8), 0 0 120px rgba(0,229,255,0.5);animation:pulse 1s infinite;">5</div>
-        <div style="font-size:24px;color:#8aa0b1;margin-top:20px;letter-spacing:4px;text-transform:uppercase;">Iniciando ronda...</div>
-    </div>
-</div>
+<!-- Countdown overlay (deprecated - usando telón teatral) -->
+<!-- <div id="countdownOverlay" style="display:none;">...</div> -->
 
 <!-- Teatro Telón para cambio de rondas -->
 <div id="curtainOverlay" class="curtain-overlay" style="display:none;">
@@ -306,17 +301,6 @@ function handleIncoming(msg){
         render(); // render triggers the reveal animation on inserted .cell.revealed
     } else if(msg.type === 'state'){
         stateEl.textContent = msg.payload.state;
-    } else if(msg.type === 'countdown'){
-        const countdownOverlay = document.getElementById('countdownOverlay');
-        const countdownNumber = document.getElementById('countdownNumber');
-        const count = msg.payload.count;
-        
-        if(count > 0){
-            countdownOverlay.style.display = 'flex';
-            countdownNumber.textContent = count;
-        } else {
-            countdownOverlay.style.display = 'none';
-        }
     } else if(msg.type === 'update_strikes'){
         // Update strike count
         const prevCount = strikeCount;

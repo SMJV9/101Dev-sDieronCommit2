@@ -263,6 +263,25 @@ let autoResendTimer = null;
 let activeTeam = null; // current team answering
 let roundNumber = 1; // Track which round we're on
 let pointMultiplier = 1; // Points multiplier (1x, 2x, 3x)
+let isRoundActive = false; // Track if there's an active round to lock team name inputs
+
+// Function to lock/unlock team name inputs based on round state
+function setTeamInputsLocked(locked) {
+    const team1Input = document.getElementById('team1Input');
+    const team2Input = document.getElementById('team2Input');
+    if(team1Input) {
+        team1Input.disabled = locked;
+        team1Input.style.opacity = locked ? '0.6' : '1';
+        team1Input.style.cursor = locked ? 'not-allowed' : 'text';
+        team1Input.title = locked ? 'No se pueden cambiar los nombres durante una ronda activa' : '';
+    }
+    if(team2Input) {
+        team2Input.disabled = locked;
+        team2Input.style.opacity = locked ? '0.6' : '1';
+        team2Input.style.cursor = locked ? 'not-allowed' : 'text';
+        team2Input.title = locked ? 'No se pueden cambiar los nombres durante una ronda activa' : '';
+    }
+}
 
 // auto-resend when answers change, to help boards that miss initial message
 function scheduleAutoResend(){ 
@@ -413,6 +432,9 @@ function validateTeams() {
                        teamNames.every(t => currentTeams.includes(t)) && 
                        currentTeams.every(t => teamNames.includes(t));
     if(nextRoundBtn) nextRoundBtn.disabled = !teamsMatch;
+    
+    // Update team input lock state based on round activity
+    setTeamInputsLocked(isRoundActive);
 }
 
 team1Input.addEventListener('input', ()=>{
@@ -425,6 +447,12 @@ team2Input.addEventListener('input', ()=>{
 });
 
 function broadcastTeamNamesIfReady(){
+    // No permitir cambios de nombres si hay una ronda activa
+    if(isRoundActive) {
+        console.log('⚠️ No se pueden cambiar nombres de equipos durante una ronda activa');
+        return;
+    }
+    
     const names = getTeamNames();
     if(names.length === 2){
         // Remap local controller scores by position to preserve points
@@ -576,10 +604,9 @@ finishRoundBtn.addEventListener('click', ()=>{
 
 // Common routine to transition to a new round
 function runRound(teamNames, keepScores){
-    // disable button during countdown
+    // disable buttons during transition
     startRoundBtn.disabled = true;
     nextRoundBtn.disabled = true;
-    const originalText = startRoundBtn.textContent;
     
     // 🎭 Agregar efecto teatral si no es la primera ronda
     if(roundNumber > 1) {
@@ -588,99 +615,92 @@ function runRound(teamNames, keepScores){
         console.log('🎭 Preparando transición teatral para Ronda', roundNumber);
     }
     
-    // countdown from 5 to 1
-    let countdown = 5;
-    startRoundBtn.textContent = `Iniciando en ${countdown}...`;
+    // Mostrar estado de preparación
+    startRoundBtn.textContent = '🎭 Preparando ronda...';
     
-    // send countdown to board
-    sendMessage({type:'countdown', payload:{count: countdown}});
-    
-    const countdownInterval = setInterval(()=>{
-        countdown--;
-        if(countdown > 0){
-            startRoundBtn.textContent = `Iniciando en ${countdown}...`;
-            sendMessage({type:'countdown', payload:{count: countdown}});
-        } else {
-            clearInterval(countdownInterval);
-            startRoundBtn.textContent = originalText;
-            startRoundBtn.disabled = false;
-            nextRoundBtn.disabled = false;
-            
-            // hide countdown on board
-            sendMessage({type:'countdown', payload:{count: 0}});
-            
-            // 🎭 Quitar efectos teatrales de los botones
-            nextRoundBtn.classList.remove('curtain-effect');
-            startRoundBtn.classList.remove('curtain-effect');
-            
-            // clear answers but keep team scores
-            answers = [];
-            questionEl.value = '';
-            render();
-            
-            // reset strike count
-            strikeCount = 0;
-            updateStrikeDisplay();
-            sendMessage({type:'update_strikes', payload:{count: strikeCount}});
-            
-            // send empty init to board to clear questions
-            sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
-            
-            // Auto-ajustar multiplicador por número de ronda (R1=x1, R2=x2, R3+=x3)
-            let desiredMultiplier = 1;
-            if(roundNumber >= 3) desiredMultiplier = 3; else if(roundNumber === 2) desiredMultiplier = 2;
-            if(pointMultiplier !== desiredMultiplier){
-                pointMultiplier = desiredMultiplier;
-                // actualizar UI de botones
-                document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
-                const btn = document.getElementById('multiplier'+pointMultiplier);
-                if(btn) btn.classList.add('active');
-                // notificar al board de inmediato
-                sendMessage({type:'multiplier', payload:{multiplier: pointMultiplier}});
-            }
-
-            // announce teams and reset round points to 0 (round points accumulate automáticamente en aciertos)
-            // Enviamos keepScores para que el tablero sepa si debe conservar o reiniciar marcadores
-            sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber, multiplier: pointMultiplier, keepScores: !!keepScores}});
-            // Enviar también team_names para asegurar mapeo de nombres->puntos por lado
-            sendMessage({type:'team_names', payload:{teams: teamNames, points: 0}});
-            // Make sure controller local state also knows the teams immediately (works even if storage fallback)
-            currentRound.points = 0;
-            currentRound.accumulatedPoints = 0;
-            currentRound.teams = teamNames.slice();
-            currentRound.roundNumber = roundNumber;
-            currentRound.multiplier = pointMultiplier;
-
-            // reset active team UI and board highlight
-            activeTeam = null;
-            renderActiveTeamButtons(teamNames);
-            turnControls.style.display = 'block';
-            sendMessage({type:'active_team', payload:{team:null}});
-            
-            // hide assignment area until board signals round_ready
-            roundAssignEl.style.display = 'none';
-            
-            // Score handling
-            if(keepScores){
-                // keep existing totals; just ensure keys exist
-                teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
-                // also remove any extra teams beyond these two
-                Object.keys(teamScores).forEach(k=>{ if(!teamNames.includes(k)) delete teamScores[k]; });
-            } else {
-                // reset to 0 for a fresh game with these two
-                teamScores = {};
-                teamNames.forEach(t=>{ teamScores[t] = 0; });
-            }
-            persistTeamScores();
-            renderTeamScores();
-            
-            // Update round number display
-            const roundNumEl = document.getElementById('roundNumber');
-            if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNumber}`;
-            
-            stateEl.textContent = 'Nueva ronda';
+    // Ejecutar transición después de un breve delay (para que se vea el cambio de botón)
+    setTimeout(() => {
+        // 🎭 Quitar efectos teatrales de los botones
+        nextRoundBtn.classList.remove('curtain-effect');
+        startRoundBtn.classList.remove('curtain-effect');
+        
+        // Restaurar botones
+        startRoundBtn.textContent = 'Iniciar ronda';
+        startRoundBtn.disabled = false;
+        nextRoundBtn.disabled = false;
+        
+        // clear answers but keep team scores
+        answers = [];
+        questionEl.value = '';
+        render();
+        
+        // reset strike count
+        strikeCount = 0;
+        updateStrikeDisplay();
+        sendMessage({type:'update_strikes', payload:{count: strikeCount}});
+        
+        // send empty init to board to clear questions
+        sendMessage({type:'init', payload:{answers:[], state:'Nueva ronda', question:''}});
+        
+        // Auto-ajustar multiplicador por número de ronda (R1=x1, R2=x2, R3+=x3)
+        let desiredMultiplier = 1;
+        if(roundNumber >= 3) desiredMultiplier = 3; else if(roundNumber === 2) desiredMultiplier = 2;
+        if(pointMultiplier !== desiredMultiplier){
+            pointMultiplier = desiredMultiplier;
+            // actualizar UI de botones
+            document.querySelectorAll('.multiplier-btn').forEach(b => b.classList.remove('active'));
+            const btn = document.getElementById('multiplier'+pointMultiplier);
+            if(btn) btn.classList.add('active');
+            // notificar al board de inmediato
+            sendMessage({type:'multiplier', payload:{multiplier: pointMultiplier}});
         }
-    }, 1000);
+
+        // announce teams and reset round points to 0 (round points accumulate automáticamente en aciertos)
+        // Enviamos keepScores para que el tablero sepa si debe conservar o reiniciar marcadores
+        sendMessage({type:'round_points', payload:{points:0, teams: teamNames, roundNumber: roundNumber, multiplier: pointMultiplier, keepScores: !!keepScores}});
+        // Enviar también team_names para asegurar mapeo de nombres->puntos por lado
+        sendMessage({type:'team_names', payload:{teams: teamNames, points: 0}});
+        // Make sure controller local state also knows the teams immediately (works even if storage fallback)
+        currentRound.points = 0;
+        currentRound.accumulatedPoints = 0;
+        currentRound.teams = teamNames.slice();
+        currentRound.roundNumber = roundNumber;
+        currentRound.multiplier = pointMultiplier;
+
+        // reset active team UI and board highlight
+        activeTeam = null;
+        renderActiveTeamButtons(teamNames);
+        turnControls.style.display = 'block';
+        sendMessage({type:'active_team', payload:{team:null}});
+        
+        // hide assignment area until board signals round_ready
+        roundAssignEl.style.display = 'none';
+        
+        // Score handling
+        if(keepScores){
+            // keep existing totals; just ensure keys exist
+            teamNames.forEach(t=>{ if(!(t in teamScores)) teamScores[t] = 0; });
+            // also remove any extra teams beyond these two
+            Object.keys(teamScores).forEach(k=>{ if(!teamNames.includes(k)) delete teamScores[k]; });
+        } else {
+            // reset to 0 for a fresh game with these two
+            teamScores = {};
+            teamNames.forEach(t=>{ teamScores[t] = 0; });
+        }
+        persistTeamScores();
+        renderTeamScores();
+        
+        // Update round number display
+        const roundNumEl = document.getElementById('roundNumber');
+        if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNumber}`;
+        
+        // 🔒 Activar bloqueo de equipos - ronda en curso
+        isRoundActive = true;
+        setTeamInputsLocked(true);
+        console.log('🔒 Nombres de equipos bloqueados - ronda activa');
+        
+        stateEl.textContent = 'Nueva ronda';
+    }, 800); // Breve delay para la transición suave
 }
 
 
@@ -1014,6 +1034,10 @@ document.getElementById('reset').addEventListener('click', () => {
     teamScores = {};
     roundNumber = 1;
     
+    // 🔓 Desbloquear nombres de equipos - reset general
+    isRoundActive = false;
+    setTeamInputsLocked(false);
+    
     // Clear localStorage first
     localStorage.removeItem('game-team-scores');
     
@@ -1093,6 +1117,12 @@ if(newGameBtn){
 
         // Deshabilitar "Siguiente ronda" hasta que se definan los mismos equipos
         if(nextRoundBtn) nextRoundBtn.disabled = true;
+        
+        // 🔓 Desbloquear nombres de equipos - nueva partida
+        isRoundActive = false;
+        setTeamInputsLocked(false);
+        console.log('🔓 Nombres de equipos desbloqueados - nueva partida');
+        
         validateTeams(); // muestra validación de equipos si corresponde
 
         // Limpiar almacenamiento de puntajes y cualquier snapshot previo
@@ -1382,6 +1412,9 @@ function finishStealAttempt(){
 // load persisted scores
 try{ const s = localStorage.getItem('game-team-scores'); if(s) teamScores = JSON.parse(s) || {}; }catch(e){}
 renderTeamScores();
+
+// Initialize team input state on page load
+validateTeams();
 
 // small helper to avoid XSS in injected text (same as board)
 function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; }); }
