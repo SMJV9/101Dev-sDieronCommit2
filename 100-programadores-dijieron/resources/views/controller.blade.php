@@ -36,6 +36,7 @@
         <!-- <button id="setDefaults">Cargar ejemplo</button> -->
         <button id="sendInit">Enviar al tablero</button>
         <button id="resend">Reenviar estado</button>
+        <button id="testConnection" style="background:#10b981;color:white">🔗 Test conexión</button>
         <button id="reset">Reset</button>
         <button id="newGame" style="margin-left:6px;background:linear-gradient(135deg,#f59e0b 0%, #d97706 100%)">Nueva partida</button>
         <!-- <button id="addAnswer">Agregar respuesta</button> -->
@@ -716,7 +717,7 @@ function showAssignIfRoundComplete(){
 
         if(activeTeam){
             // Auto-assign to selected active team
-            sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints}});
+            sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints, roundNumber: roundNumber}});
             if(!(activeTeam in teamScores)) teamScores[activeTeam]=0;
             teamScores[activeTeam] = Number(teamScores[activeTeam]||0) + finalPoints;
             persistTeamScores();
@@ -731,7 +732,7 @@ function showAssignIfRoundComplete(){
             if(readyText) readyText.textContent = `La ronda terminó. Asignar ${finalPoints} puntos${multiplierText} a:`;
             (currentRound.teams || []).forEach(t=>{
                 const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
-                    sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
+                    sendMessage({type:'assign_points', payload:{team:t, points: finalPoints, roundNumber: roundNumber}});
                     if(!(t in teamScores)) teamScores[t]=0;
                     teamScores[t] = Number(teamScores[t]||0) + finalPoints;
                     persistTeamScores();
@@ -1024,6 +1025,26 @@ document.getElementById('resend').addEventListener('click', ()=>{
     sendMessage({type:'init', payload});
 });
 
+document.getElementById('testConnection').addEventListener('click', ()=>{
+    const testMsg = {
+        type: 'test_connection',
+        timestamp: Date.now(),
+        payload: { message: 'Test de conexión desde controller' }
+    };
+    console.log('[controller] Enviando test de conexión:', testMsg);
+    sendMessage(testMsg);
+    
+    // Visual feedback
+    const btn = document.getElementById('testConnection');
+    const originalText = btn.textContent;
+    btn.textContent = '🔗 Enviando...';
+    btn.style.background = '#f59e0b';
+    setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.background = '#10b981';
+    }, 1000);
+});
+
 document.getElementById('reset').addEventListener('click', () => {
     // Reset everything to 0
     answers = [];
@@ -1141,6 +1162,13 @@ channel.onmessage = (ev) => {
     // centralized handler for incoming messages (from channel or storage)
     function handleIncoming(msg){
         if (!msg || !msg.type) return;
+            // handle test response from board
+            if (msg.type === 'test_response'){
+                console.log('[controller] ✅ Respuesta de test recibida del board:', msg);
+                setSyncStatus('ok', '🟢 Conexión confirmada!');
+                setTimeout(()=>{ setSyncStatus('idle','Sin actividad'); }, 3000);
+                return;
+            }
             // handle ACKs from board
             if (msg.type === 'ack'){
                 if(msg.id && msg.id === lastAckId){
@@ -1200,7 +1228,7 @@ channel.onmessage = (ev) => {
                 const finalPoints = Number(currentRound.accumulatedPoints || 0);
                 if(finalPoints > 0){
                     if(activeTeam){
-                        sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints}});
+                        sendMessage({type:'assign_points', payload:{team:activeTeam, points: finalPoints, roundNumber: roundNumber}});
                         if(!(activeTeam in teamScores)) teamScores[activeTeam]=0;
                         teamScores[activeTeam] = Number(teamScores[activeTeam]||0) + finalPoints;
                         persistTeamScores();
@@ -1212,7 +1240,7 @@ channel.onmessage = (ev) => {
                         roundTeamButtons.innerHTML = '';
                         (currentRound.teams || []).forEach(t=>{
                             const b = document.createElement('button'); b.textContent = t; b.addEventListener('click', ()=>{
-                                sendMessage({type:'assign_points', payload:{team:t, points: finalPoints}});
+                                sendMessage({type:'assign_points', payload:{team:t, points: finalPoints, roundNumber: roundNumber}});
                                 if(!(t in teamScores)) teamScores[t]=0;
                                 teamScores[t] = Number(teamScores[t]||0) + finalPoints;
                                 persistTeamScores();
@@ -1339,7 +1367,7 @@ if(stealSuccessBtn){
         
         // Award points to the team that stole
         if(stealTeam && points >= 0){
-            sendMessage({type:'assign_points', payload:{team: stealTeam, points: points}});
+            sendMessage({type:'assign_points', payload:{team: stealTeam, points: points, roundNumber: roundNumber}});
             if(!(stealTeam in teamScores)) teamScores[stealTeam] = 0;
             teamScores[stealTeam] = Number(teamScores[stealTeam]||0) + points;
             persistTeamScores();
@@ -1381,7 +1409,7 @@ if(stealFailBtn){
         
         // Award points to the original team (the one that had control)
         if(originalTeam && points >= 0){
-            sendMessage({type:'assign_points', payload:{team: originalTeam, points: points}});
+            sendMessage({type:'assign_points', payload:{team: originalTeam, points: points, roundNumber: roundNumber}});
             if(!(originalTeam in teamScores)) teamScores[originalTeam] = 0;
             teamScores[originalTeam] = Number(teamScores[originalTeam]||0) + points;
             persistTeamScores();

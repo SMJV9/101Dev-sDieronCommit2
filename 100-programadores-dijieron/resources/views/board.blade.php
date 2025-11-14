@@ -3,8 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>1100100 Devs Dijeron — Tablero</title>
+    <title>1100100 Devs Dijieron — Tablero</title>
     @vite('resources/css/board.css')
+    <style>
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
 </head>
 <body>
 <div class="container">
@@ -77,13 +83,14 @@
             </div>
 
         </div>
-        <!-- <aside class="panel">
-            <h3>Panel</h3>
-            <div class="chip">Tema: Desarrollo / Ingeniería de Software</div>
-            <div class="chip">Conexión: <span id="connType" class="small">-</span></div>
-        
+        <!-- Terminal de estado en la parte inferior -->
+        <div id="terminalStatus" style="position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;color:#00ff00;font-family:'Fira Code','Courier New',monospace;font-size:11px;padding:6px 12px;border-top:1px solid #333;z-index:1000;display:flex;align-items:center;gap:8px;">
+            <span style="color:#66fcf1;">➜</span>
+            <span style="color:#ffffff;">game-board@1100100devs:</span>
+            <span style="color:#66fcf1;">~$</span>
+            <span id="connType" style="color:#00ff00;">conectando...</span>
+            <span id="terminalCursor" style="color:#00ff00;animation:blink 1s infinite;">▋</span>
         </div>
-        </aside> -->
     </div>
 </div>
 
@@ -112,18 +119,55 @@
     </div>
 </div>
 
+<!-- Animación del Ganador -->
+<div id="winnerOverlay" class="winner-overlay" style="display:none;">
+    <div class="winner-background"></div>
+    <div class="winner-content">
+        <div class="winner-trophy">🏆</div>
+        <h1 id="winnerTitle" class="winner-title">¡GANADOR!</h1>
+        <h2 id="winnerTeam" class="winner-team">Equipo Ganador</h2>
+        <div id="winnerScore" class="winner-score">000 puntos</div>
+        <div class="winner-message">¡Felicitaciones por la victoria!</div>
+    </div>
+    <div class="confetti-container" id="confettiContainer"></div>
+    <div class="fireworks-container" id="fireworksContainer"></div>
+</div>
+
 <script>
-// Silence console output for cleaner public UI
-try{ console.log = function(){}; console.debug = function(){}; }catch(e){}
+// Keep console active for debugging connection issues
+// try{ console.log = function(){}; console.debug = function(){}; }catch(e){}
 // Keep the same messaging contract: BroadcastChannel primary, localStorage fallback
 let channel = null; let usingBroadcast = false;
-try{ if (typeof BroadcastChannel !== 'undefined'){ channel = new BroadcastChannel('game-100mx'); usingBroadcast = true; document.getElementById('connType').textContent = 'BroadcastChannel'; console.debug('[board] bc open'); } }catch(e){ console.debug('[board] bc err', e); }
+try{ 
+    if (typeof BroadcastChannel !== 'undefined'){ 
+        channel = new BroadcastChannel('game-100mx'); 
+        usingBroadcast = true; 
+        document.getElementById('connType').textContent = 'broadcastchannel --status=connected ✓'; 
+        console.log('[board] BroadcastChannel conectado exitosamente'); 
+    } 
+}catch(e){ 
+    console.error('[board] Error BroadcastChannel:', e); 
+    document.getElementById('connType').textContent = 'broadcastchannel --status=error ❌'; 
+}
 
 function sendMessage(msg){ if(usingBroadcast && channel) return channel.postMessage(msg); try{ localStorage.setItem('game-100mx', JSON.stringify({msg, ts:Date.now()})); return true; }catch(e){ console.debug('[board] ls fail', e); return false; } }
 
 function addStorageListener(fn){ window.addEventListener('storage', (ev)=>{ if(!ev.key || ev.key !== 'game-100mx') return; try{ const d = JSON.parse(ev.newValue); fn(d.msg); }catch(e){} }); }
 
-if(usingBroadcast && channel){ channel.onmessage = (ev)=>{ handleIncoming(ev.data); }; } else { addStorageListener((m)=>{ handleIncoming(m); }); document.getElementById('connType').textContent = 'localStorage (fallback)'; }
+if(usingBroadcast && channel){ 
+    channel.onmessage = (ev)=>{ 
+        console.log('[board] Mensaje recibido via BroadcastChannel:', ev.data); 
+        handleIncoming(ev.data); 
+    }; 
+    console.log('[board] Escuchando mensajes via BroadcastChannel');
+} else { 
+    addStorageListener((m)=>{ 
+        console.log('[board] Mensaje recibido via localStorage:', m); 
+        handleIncoming(m); 
+    }); 
+    document.getElementById('connType').textContent = 'localstorage --fallback=true ⚠️'; 
+    console.log('[board] Usando localStorage como fallback');
+}
 
 const answersEl = document.getElementById('answers'); const stateEl = document.getElementById('state'); const questionEl = document.getElementById('question'); 
 const team1ScoreEl = document.getElementById('team1Score'); const team1NameEl = document.getElementById('team1Name');
@@ -273,6 +317,19 @@ function appendLog(txt){}
 
 function handleIncoming(msg){ 
     console.log('[board] =====> Mensaje recibido:', msg);
+    
+    // Actualizar indicador de conexión activa
+    const connTypeEl = document.getElementById('connType');
+    if(connTypeEl) {
+        const currentText = connTypeEl.textContent;
+        if(currentText.includes('✅')) {
+            connTypeEl.textContent = currentText.replace('✅', '🟢');
+            setTimeout(() => {
+                connTypeEl.textContent = currentText;
+            }, 500);
+        }
+    }
+    
     if(!msg || !msg.type) {
         console.log('[board] Mensaje inválido (sin type)');
         return;
@@ -297,6 +354,10 @@ function handleIncoming(msg){
         // Defensive: ignore duplicate reveals of the same index
         if(answers[idx].revealed){ return; }
         answers[idx].revealed = true;
+        
+        // 🖥️ Mostrar en terminal
+        showTerminalMessage(`reveal --answer=${idx+1} --text="${answers[idx].text}" ✓`);
+        
         playSuccessSound(); // ✅ Success sound
         render(); // render triggers the reveal animation on inserted .cell.revealed
     } else if(msg.type === 'state'){
@@ -305,7 +366,10 @@ function handleIncoming(msg){
         // Update strike count
         const prevCount = strikeCount;
         strikeCount = Number((msg.payload && msg.payload.count) || 0);
-        if(strikeCount > prevCount) playErrorSound(); // ❌ Compile error sound
+        if(strikeCount > prevCount) {
+            playErrorSound(); // ❌ Compile error sound
+            showTerminalMessage(`strike --count=${strikeCount}/3 --penalty=true ❌`);
+        }
         renderStrikes();
     } else if(msg.type === 'round_points'){
         // controller started a round; store points & teams and update display
@@ -321,15 +385,26 @@ function handleIncoming(msg){
         const roundNumEl = document.getElementById('roundNumberDisplay');
         if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNum}`;
         
-        // 🎭 MOSTRAR TELÓN TEATRAL para cambio de ronda (excepto ronda 1)
-        if(roundNum > 1) {
-            const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
-            const multiplierText = multiplier > 1 ? ` — ${multiplier === 2 ? 'DOBLE' : 'TRIPLE'} PUNTOS` : '';
+        // 🎭 MOSTRAR TELÓN TEATRAL para cambio de ronda
+        const keepScores = !!(msg.payload && msg.payload.keepScores);
+        const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+        const multiplierText = multiplier > 1 ? ` — ${multiplier === 2 ? 'DOBLE' : 'TRIPLE'} PUNTOS` : '';
+        
+        console.log(`[board] Telón - keepScores: ${keepScores}, roundNum: ${roundNum}`);
+        
+        if(!keepScores) {
+            // Es "Nueva partida" - siempre mostrar mensaje de nueva partida
+            console.log('[board] Mostrando telón para NUEVA PARTIDA');
+            showTerminalMessage('game --new-match --initializing... 🎮');
+            showCurtainTransition('NUEVA PARTIDA', 'Cargando nueva partida...');
+        } else if(roundNum > 1) {
+            // Es "Siguiente ronda" - mostrar info de ronda solo si no es la primera ronda
+            console.log(`[board] Mostrando telón para RONDA ${roundNum}`);
+            showTerminalMessage(`round --next=${roundNum} --multiplier=${multiplier}x 🎯`);
             showCurtainTransition(roundNum, `¡Que comience el desafío!${multiplierText}`);
         }
         
-        // Update multiplier display
-        const multiplier = Number((msg.payload && msg.payload.multiplier) || 1);
+        // Update multiplier display (reutilizar la variable multiplier ya declarada)
         const multiplierEl = document.getElementById('multiplierDisplay');
         if(multiplierEl){
             if(multiplier > 1){
@@ -436,16 +511,43 @@ function handleIncoming(msg){
     } else if(msg.type === 'assign_points'){
         const p = (msg.payload && Number(msg.payload.points)) || 0;
         const team = (msg.payload && msg.payload.team) || '';
+        const roundNum = (msg.payload && msg.payload.roundNumber) || 0;
+        
         // Update team scores
         if(team){
             if(!(team in teamScores)) teamScores[team] = 0;
             teamScores[team] = Number(teamScores[team] || 0) + Number(p || 0);
+            
+            // 🖥️ Mostrar en terminal
+            showTerminalMessage(`points --team="${team}" --add=${p} --total=${teamScores[team]} 💰`);
+            
             persistTeamScores();
             renderTeamScores();
+            
+            // 🏆 Verificar si el juego ha terminado (Ronda 3)
+            if(roundNum >= 3) {
+                checkGameEnd(roundNum);
+            }
         }
-    } else if(msg.type === 'round_finish_curtain'){
-        // Mostrar telón teatral para finalización de ronda
-        showRoundFinishCurtain();
+    } else if(msg.type === 'test_connection'){
+        // Test de conexión desde controller
+        console.log('[board] ✅ Test de conexión recibido exitosamente:', msg);
+        const connTypeEl = document.getElementById('connType');
+        if(connTypeEl) {
+            const originalText = connTypeEl.textContent;
+            connTypeEl.textContent = 'ping controller --result=success ✓';
+            connTypeEl.style.color = '#00ff00';
+            setTimeout(() => {
+                connTypeEl.textContent = originalText;
+                connTypeEl.style.color = '#00ff00';
+            }, 3000);
+        }
+        // Enviar respuesta de vuelta al controller
+        sendMessage({
+            type: 'test_response', 
+            timestamp: Date.now(),
+            payload: { message: 'Conexión confirmada desde board' }
+        });
     } else if(msg.type === 'reset_all'){
         // Complete reset of everything
         console.log('[board] ===== RESET ALL INICIADO =====');
@@ -538,6 +640,23 @@ document.addEventListener('keydown', (e)=>{ if(e.key && e.key.toLowerCase() === 
 // small helper to avoid XSS in injected text
 function escapeHtml(s){ if(!s) return ''; return s.replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]; }); }
 
+// Terminal message system
+let terminalTimeout = null;
+function showTerminalMessage(message) {
+    const connTypeEl = document.getElementById('connType');
+    if(!connTypeEl) return;
+    
+    const originalText = connTypeEl.textContent;
+    connTypeEl.textContent = message;
+    connTypeEl.style.color = '#ffff00'; // Yellow for activity
+    
+    if(terminalTimeout) clearTimeout(terminalTimeout);
+    terminalTimeout = setTimeout(() => {
+        connTypeEl.textContent = originalText;
+        connTypeEl.style.color = '#00ff00'; // Back to green
+    }, 2500);
+}
+
 // Steal overlay helper
 let stealTimeout = null;
 function showStealBanner(team, points){
@@ -603,8 +722,14 @@ function showCurtainTransition(roundNumber, subtitle) {
     
     if (!curtainOverlay) return;
     
-    // Configurar el mensaje
-    if (roundTitle) roundTitle.textContent = `RONDA ${roundNumber}`;
+    // Configurar el mensaje - detectar si es nueva partida o ronda
+    if (roundTitle) {
+        if (roundNumber === 'NUEVA PARTIDA') {
+            roundTitle.textContent = 'NUEVA PARTIDA';
+        } else {
+            roundTitle.textContent = `RONDA ${roundNumber}`;
+        }
+    }
     if (roundSubtitle) roundSubtitle.textContent = subtitle || '¡Preparando nueva ronda!';
     
     // Mostrar overlay y iniciar animación de cierre
@@ -631,46 +756,159 @@ function showCurtainTransition(roundNumber, subtitle) {
         if (message) message.classList.remove('message-visible');
     }, 5200);
     
-    console.log(`🎭 Transición de telón para Ronda ${roundNumber}`);
+    console.log(`🎭 Transición de telón: ${roundNumber}`);
 }
 
-function showRoundFinishCurtain() {
-    const curtainOverlay = document.getElementById('curtainOverlay');
-    const roundTitle = document.getElementById('roundTransitionTitle');
-    const roundSubtitle = document.getElementById('roundTransitionSubtitle');
-    const message = document.getElementById('roundTransitionMessage');
+// Función showRoundFinishCurtain eliminada - no se usa
+
+// ===== WINNER CELEBRATION FUNCTIONS =====
+function playVictorySound() {
+    try {
+        // Sonido de victoria épico con múltiples tonos
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, index) => {
+            setTimeout(() => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = freq;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.8);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.8);
+            }, index * 200);
+        });
+        console.log('🎵 Sonido de victoria!');
+    } catch(e) {
+        console.log('Error reproduciendo sonido de victoria:', e);
+    }
+}
+
+function createConfetti() {
+    const container = document.getElementById('confettiContainer');
+    if (!container) return;
     
-    if (!curtainOverlay) return;
+    // Crear 50 piezas de confeti
+    for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        confetti.style.animationDelay = Math.random() * 2 + 's';
+        container.appendChild(confetti);
+        
+        // Remover confeti después de la animación
+        setTimeout(() => {
+            if (confetti.parentNode) {
+                confetti.parentNode.removeChild(confetti);
+            }
+        }, 5000);
+    }
+}
+
+function createFireworks() {
+    const container = document.getElementById('fireworksContainer');
+    if (!container) return;
     
-    // Configurar mensaje de finalización
-    if (roundTitle) roundTitle.textContent = '¡RONDA TERMINADA!';
-    if (roundSubtitle) roundSubtitle.textContent = 'Revelando respuestas restantes...';
+    // Crear múltiples explosiones de fuegos artificiales
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const centerX = Math.random() * 100;
+            const centerY = Math.random() * 50 + 20;
+            
+            // Crear partículas para cada explosión
+            for (let j = 0; j < 12; j++) {
+                const firework = document.createElement('div');
+                firework.className = 'firework';
+                firework.style.left = centerX + '%';
+                firework.style.top = centerY + '%';
+                
+                const randomX = (Math.random() - 0.5) * 200;
+                const randomY = (Math.random() - 0.5) * 200;
+                firework.style.setProperty('--random-x', randomX + 'px');
+                firework.style.setProperty('--random-y', randomY + 'px');
+                
+                container.appendChild(firework);
+                
+                // Remover después de la animación
+                setTimeout(() => {
+                    if (firework.parentNode) {
+                        firework.parentNode.removeChild(firework);
+                    }
+                }, 2000);
+            }
+        }, i * 800);
+    }
+}
+
+function showWinnerCelebration(winnerTeam, winnerScore) {
+    const overlay = document.getElementById('winnerOverlay');
+    const teamElement = document.getElementById('winnerTeam');
+    const scoreElement = document.getElementById('winnerScore');
     
-    // Mostrar overlay y cerrar telón
-    curtainOverlay.style.display = 'flex';
-    curtainOverlay.className = 'curtain-overlay curtain-closing';
+    if (!overlay) return;
     
-    // Reproducir sonido
-    playCurtainSound();
+    // Configurar datos del ganador
+    if (teamElement) teamElement.textContent = winnerTeam;
+    if (scoreElement) scoreElement.textContent = winnerScore + ' puntos';
     
-    // Mostrar mensaje
+    // Mostrar overlay
+    overlay.style.display = 'flex';
+    
+    // Reproducir sonido de victoria
+    playVictorySound();
+    
+    // Iniciar efectos especiales
+    setTimeout(() => createConfetti(), 500);
+    setTimeout(() => createFireworks(), 1000);
+    setTimeout(() => createConfetti(), 3000);
+    setTimeout(() => createFireworks(), 4000);
+    
+    console.log(`🏆 ¡Celebración del ganador! ${winnerTeam} con ${winnerScore} puntos`);
+    
+    // Ocultar después de 8 segundos
     setTimeout(() => {
-        if (message) message.classList.add('message-visible');
-    }, 1800);
-    
-    // Abrir telón más rápido para la finalización
-    setTimeout(() => {
-        curtainOverlay.className = 'curtain-overlay curtain-opening';
-    }, 3000);
-    
-    // Ocultar
-    setTimeout(() => {
-        curtainOverlay.style.display = 'none';
-        curtainOverlay.className = 'curtain-overlay';
-        if (message) message.classList.remove('message-visible');
-    }, 4200);
-    
-    console.log('🎭 Telón de finalización de ronda');
+        overlay.style.display = 'none';
+        // Limpiar contenedores
+        const confettiContainer = document.getElementById('confettiContainer');
+        const fireworksContainer = document.getElementById('fireworksContainer');
+        if (confettiContainer) confettiContainer.innerHTML = '';
+        if (fireworksContainer) fireworksContainer.innerHTML = '';
+    }, 8000);
+}
+
+function checkGameEnd(roundNumber) {
+    // Si es la Ronda 3 (última ronda), determinar ganador
+    if (roundNumber >= 3) {
+        const teamNames = Object.keys(teamScores);
+        if (teamNames.length >= 2) {
+            const team1Score = teamScores[teamNames[0]] || 0;
+            const team2Score = teamScores[teamNames[1]] || 0;
+            
+            let winnerTeam, winnerScore;
+            if (team1Score > team2Score) {
+                winnerTeam = teamNames[0];
+                winnerScore = team1Score;
+            } else if (team2Score > team1Score) {
+                winnerTeam = teamNames[1];
+                winnerScore = team2Score;
+            } else {
+                // Empate
+                winnerTeam = '¡EMPATE!';
+                winnerScore = team1Score;
+            }
+            
+            // Mostrar celebración después de un breve delay
+            setTimeout(() => {
+                showWinnerCelebration(winnerTeam, winnerScore);
+            }, 2000);
+            
+            return true; // Juego terminado
+        }
+    }
+    return false; // Juego continúa
 }
 </script>
 
