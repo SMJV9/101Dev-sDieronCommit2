@@ -6,6 +6,12 @@
     <title>Controller - 1100100 Devs Dijeron</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite('resources/css/controller.css')
+    <style>
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+    </style>
 </head>
 <body>
 <header>
@@ -121,14 +127,25 @@
 // communication: prefer BroadcastChannel, fallback to localStorage events
 let channel = null;
 let usingBroadcast = false;
-try {
-    if (typeof BroadcastChannel !== 'undefined') {
-        channel = new BroadcastChannel('game-100mx');
-        usingBroadcast = true;
-        console.debug('[controller] BroadcastChannel opened', channel);
+
+// Función para inicializar conexión y terminal
+function initializeConnection() {
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            channel = new BroadcastChannel('game-100mx');
+            usingBroadcast = true;
+            console.debug('[controller] BroadcastChannel opened', channel);
+            const connTypeEl = document.getElementById('connType');
+            if(connTypeEl) connTypeEl.textContent = 'broadcastchannel --status=connected ✓';
+        }
+    } catch(e){
+        console.debug('[controller] BroadcastChannel not available', e);
+        const connTypeEl = document.getElementById('connType');
+        if(connTypeEl) connTypeEl.textContent = 'broadcastchannel --status=error ❌';
     }
-} catch(e){
-    console.debug('[controller] BroadcastChannel not available', e);
+    
+    // Configurar listeners después de inicializar
+    setupMessageListeners();
 }
 
 // fallback send/receive via localStorage
@@ -145,11 +162,24 @@ function addStorageListener(fn){
     });
 }
 
-// if BroadcastChannel present, wire up its onmessage; otherwise use storage listener
-if (usingBroadcast && channel){
-    channel.onmessage = (ev)=>{ console.debug('[controller] received (bc)', ev.data); handleIncoming(ev.data); };
-} else {
-    addStorageListener((data)=>{ console.debug('[controller] received (storage)', data); handleIncoming(data); });
+// Función para configurar los listeners
+function setupMessageListeners() {
+    // if BroadcastChannel present, wire up its onmessage; otherwise use storage listener
+    if (usingBroadcast && channel){
+        channel.onmessage = (ev)=>{ 
+            console.debug('[controller] received (bc)', ev.data); 
+            handleIncoming(ev.data); 
+        };
+        console.debug('[controller] BroadcastChannel listener configured');
+    } else {
+        addStorageListener((data)=>{ 
+            console.debug('[controller] received (storage)', data); 
+            handleIncoming(data); 
+        });
+        const connTypeEl = document.getElementById('connType');
+        if(connTypeEl) connTypeEl.textContent = 'localstorage --fallback=true ⚠️';
+        console.debug('[controller] localStorage listener configured');
+    }
 }
 const answersEl = document.getElementById('answers');
 const stateEl = document.getElementById('state');
@@ -175,6 +205,23 @@ function setSyncStatus(state, text){
     else if(state === 'sync') syncStatusEl.style.color = '#f59e0b';
     else if(state === 'error') syncStatusEl.style.color = '#ef4444';
     else syncStatusEl.style.color = '#94a3b8';
+}
+
+// Terminal message system
+let terminalTimeout = null;
+function showTerminalMessage(message) {
+    const connTypeEl = document.getElementById('connType');
+    if(!connTypeEl) return;
+    
+    const originalText = connTypeEl.textContent;
+    connTypeEl.textContent = message;
+    connTypeEl.style.color = '#ffff00'; // Yellow for activity
+    
+    if(terminalTimeout) clearTimeout(terminalTimeout);
+    terminalTimeout = setTimeout(() => {
+        connTypeEl.textContent = originalText;
+        connTypeEl.style.color = '#00ff00'; // Back to green
+    }, 2500);
 }
 
 // Keep a reference to the original sender and wrap it to request ACKs
@@ -322,6 +369,7 @@ answersEl.addEventListener('click', (ev) => {
     const action = btn.getAttribute('data-action');
     const idx = Number(btn.getAttribute('data-idx'));
     if (action === 'reveal') {
+        showTerminalMessage(`reveal --answer=${idx+1} --text="${answers[idx]?.text || 'N/A'}" ✓`);
         sendMessage({type:'reveal', payload:{index:idx}});
         answers[idx].revealed = true;
         showAssignIfRoundComplete();
@@ -511,6 +559,7 @@ function broadcastTeamNamesIfReady(){
 startRoundBtn.addEventListener('click', ()=>{
     const teamNames = getTeamNames();
     if(teamNames.length !== 2){
+        showTerminalMessage('error --missing-teams --required=2 ❌');
         if(teamsValidation){ 
             teamsValidation.textContent = 'Ingresa el nombre de ambos equipos'; 
             teamsValidation.style.display = 'inline-block'; 
@@ -521,6 +570,7 @@ startRoundBtn.addEventListener('click', ()=>{
     }
     // New game round: reset scoreboard for these 2 teams
     roundNumber = 1;
+    showTerminalMessage(`round --start=1 --teams="${teamNames.join('","')}" 🚀`);
     runRound(teamNames, /*keepScores*/ false);
 });
 
@@ -540,6 +590,7 @@ nextRoundBtn.addEventListener('click', ()=>{
         return;
     }
     roundNumber++;
+    showTerminalMessage(`round --next=${roundNumber} --keep-scores 🎯`);
     runRound(teamNames, /*keepScores*/ true);
 });
 
@@ -1014,6 +1065,7 @@ updateTimerDisplay();
 document.getElementById('sendInit').addEventListener('click', () => {
     const payload = {answers, state:'En juego', question: questionEl.value};
     console.debug('[controller] sending init', payload);
+    showTerminalMessage('init --send-to-board --answers=' + answers.length + ' 📤');
     sendMessage({type:'init', payload});
     stateEl.textContent = 'En juego';
 });
@@ -1100,6 +1152,8 @@ document.getElementById('reset').addEventListener('click', () => {
 const newGameBtn = document.getElementById('newGame');
 if(newGameBtn){
     newGameBtn.addEventListener('click', ()=>{
+        showTerminalMessage('game --new-match --reset-all 🎮');
+        
         // Limpiar inputs de equipos (nueva partida empieza sin nombres)
         if(team1Input) team1Input.value = '';
         if(team2Input) team2Input.value = '';
@@ -1158,14 +1212,14 @@ if(newGameBtn){
     });
 }
 
-channel.onmessage = (ev) => {
-    // centralized handler for incoming messages (from channel or storage)
-    function handleIncoming(msg){
+// Función para manejar mensajes entrantes (se define una sola vez)
+function handleIncoming(msg){
         if (!msg || !msg.type) return;
             // handle test response from board
             if (msg.type === 'test_response'){
                 console.log('[controller] ✅ Respuesta de test recibida del board:', msg);
                 setSyncStatus('ok', '🟢 Conexión confirmada!');
+                showTerminalMessage('ping board --result=success ✓');
                 setTimeout(()=>{ setSyncStatus('idle','Sin actividad'); }, 3000);
                 return;
             }
@@ -1173,9 +1227,7 @@ channel.onmessage = (ev) => {
             if (msg.type === 'ack'){
                 if(msg.id && msg.id === lastAckId){
                     if(ackTimer) clearTimeout(ackTimer);
-                    setSyncStatus('ok', 'Enviado al tablero');
-                    // fade back to muted after a moment
-                    setTimeout(()=>{ setSyncStatus('idle',''); }, 1200);
+                    setSyncStatus('idle','');
                 }
                 return;
             }
@@ -1262,14 +1314,10 @@ channel.onmessage = (ev) => {
             const pts = Number((msg.payload && msg.payload.points) || 0);
             if(t){ if(!(t in teamScores)) teamScores[t] = 0; teamScores[t] = Number(teamScores[t]||0) + pts; persistTeamScores(); renderTeamScores(); }
         }
-    }
+}
 
-    // logging disabled
-    function logCtrl(text){}
-    
-    // Call handleIncoming on received messages
-    handleIncoming(ev.data);
-};
+// logging disabled
+function logCtrl(text){}
 
 // Strike (X) management
 function updateStrikeDisplay(){
@@ -1603,6 +1651,25 @@ if(quickGameBtn){ quickGameBtn.addEventListener('click', startQuickGame); }
 const quickGameDisplayBtn = document.getElementById('quickGameDisplayBtn');
 if(quickGameDisplayBtn){ quickGameDisplayBtn.addEventListener('click', ()=>{ window.open('/quickgame-display', '_blank'); }); }
 
+// Inicializar conexión cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', initializeConnection);
+// También llamar inmediatamente por si el DOM ya está listo
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeConnection);
+} else {
+    initializeConnection();
+}
+
 </script>
+
+<!-- Terminal de estado en la parte inferior -->
+<div id="terminalStatus" style="position:fixed;bottom:0;left:0;right:0;background:#0a0a0a;color:#00ff00;font-family:'Fira Code','Courier New',monospace;font-size:11px;padding:6px 12px;border-top:1px solid #333;z-index:1000;display:flex;align-items:center;gap:8px;">
+    <span style="color:#66fcf1;">➜</span>
+    <span style="color:#ffffff;">game-controller@1100100devs:</span>
+    <span style="color:#66fcf1;">~$</span>
+    <span id="connType" style="color:#00ff00;">conectando...</span>
+    <span id="terminalCursor" style="color:#00ff00;animation:blink 1s infinite;">▋</span>
+</div>
+
 </body>
 </html>

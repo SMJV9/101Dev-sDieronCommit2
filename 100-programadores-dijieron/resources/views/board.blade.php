@@ -10,6 +10,159 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+        
+        /* Perfect Round Animation Styles */
+        .perfect-round-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.9);
+            animation: perfectFadeIn 0.5s ease-out;
+        }
+        
+        .perfect-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle, rgba(255, 215, 0, 0.3) 0%, rgba(255, 140, 0, 0.2) 50%, transparent 100%);
+            animation: perfectPulse 2s ease-in-out infinite;
+        }
+        
+        .perfect-content {
+            text-align: center;
+            z-index: 10;
+            animation: perfectSlideUp 0.8s ease-out;
+        }
+        
+        .perfect-icon {
+            font-size: 120px;
+            margin-bottom: 20px;
+            animation: perfectSpin 2s ease-in-out infinite;
+            filter: drop-shadow(0 0 30px rgba(255, 215, 0, 0.8));
+        }
+        
+        .perfect-title {
+            font-size: 72px;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5);
+            margin: 0 0 20px 0;
+            animation: perfectGlow 1.5s ease-in-out infinite alternate;
+        }
+        
+        .perfect-team {
+            font-size: 36px;
+            font-weight: 700;
+            color: #FFF;
+            margin: 0 0 15px 0;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+        }
+        
+        .perfect-message {
+            font-size: 28px;
+            font-weight: 600;
+            color: #FFE55C;
+            margin: 0 0 20px 0;
+        }
+        
+        .perfect-bonus {
+            font-size: 32px;
+            font-weight: 800;
+            color: #00FF7F;
+            text-shadow: 0 0 25px rgba(0, 255, 127, 0.7);
+            animation: perfectBounce 1s ease-in-out infinite;
+        }
+        
+        .perfect-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        
+        .perfect-rings {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        
+        .perfect-ring {
+            position: absolute;
+            border: 3px solid rgba(255, 215, 0, 0.6);
+            border-radius: 50%;
+            animation: perfectRingExpand 2s ease-out infinite;
+        }
+        
+        .perfect-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: radial-gradient(circle, #FFD700, #FFA500);
+            border-radius: 50%;
+            animation: perfectParticleFly 3s ease-out infinite;
+        }
+        
+        @keyframes perfectFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes perfectSlideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes perfectSpin {
+            0%, 100% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(180deg) scale(1.1); }
+        }
+        
+        @keyframes perfectGlow {
+            0% { text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5); }
+            100% { text-shadow: 0 0 50px rgba(255, 215, 0, 1), 0 0 80px rgba(255, 215, 0, 0.7); }
+        }
+        
+        @keyframes perfectPulse {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.05); opacity: 0.5; }
+        }
+        
+        @keyframes perfectBounce {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-10px) scale(1.05); }
+        }
+        
+        @keyframes perfectRingExpand {
+            0% { width: 50px; height: 50px; opacity: 0.8; }
+            100% { width: 400px; height: 400px; opacity: 0; }
+        }
+        
+        @keyframes perfectParticleFly {
+            0% { 
+                transform: translate(0, 0) scale(0); 
+                opacity: 1; 
+            }
+            50% { 
+                transform: translate(var(--random-x), var(--random-y)) scale(1); 
+                opacity: 0.8; 
+            }
+            100% { 
+                transform: translate(calc(var(--random-x) * 2), calc(var(--random-y) * 2)) scale(0); 
+                opacity: 0; 
+            }
+        }
     </style>
 </head>
 <body>
@@ -133,6 +286,19 @@
     <div class="fireworks-container" id="fireworksContainer"></div>
 </div>
 
+<!-- Animación de Ronda Perfecta -->
+<div id="perfectRoundOverlay" class="perfect-round-overlay" style="display:none;">
+    <div class="perfect-background"></div>
+    <div class="perfect-content">
+        <div class="perfect-icon">⭐</div>
+        <h1 class="perfect-title">¡RONDA PERFECTA!</h1>
+        <h2 id="perfectTeam" class="perfect-team">Equipo</h2>
+        <div class="perfect-message">¡Todas las respuestas correctas!</div>
+    </div>
+    <div class="perfect-particles" id="perfectParticles"></div>
+    <div class="perfect-rings" id="perfectRings"></div>
+</div>
+
 <script>
 // Keep console active for debugging connection issues
 // try{ console.log = function(){}; console.debug = function(){}; }catch(e){}
@@ -177,6 +343,7 @@ const team2CardEl = document.getElementById('team2Card');
 let answers = [];
 let currentRound = {points:0, teams:[], accumulatedPoints:0};
 let roundReadySent = false;
+let currentRoundNumber = 1; // Track current round number
 let teamScores = {}; // { 'Familia A': 0, 'Familia B': 0 }
 let strikeCount = 0; // Counter for X's
 let activeTeam = null; // highlighted team answering
@@ -360,6 +527,14 @@ function handleIncoming(msg){
         
         playSuccessSound(); // ✅ Success sound
         render(); // render triggers the reveal animation on inserted .cell.revealed
+        
+        // 🌟 Verificar si es ronda perfecta después de un breve delay (solo si no es la última ronda)
+        // En la ronda 3, checkGameEnd se encarga de verificar ronda perfecta primero
+        if (currentRoundNumber < 3) {
+            setTimeout(() => {
+                checkPerfectRound();
+            }, 500);
+        }
     } else if(msg.type === 'state'){
         stateEl.textContent = msg.payload.state;
     } else if(msg.type === 'update_strikes'){
@@ -382,6 +557,7 @@ function handleIncoming(msg){
         
         // Update round number display
         const roundNum = Number((msg.payload && msg.payload.roundNumber) || 1);
+        currentRoundNumber = roundNum; // Actualizar número de ronda global
         const roundNumEl = document.getElementById('roundNumberDisplay');
         if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNum}`;
         
@@ -393,14 +569,19 @@ function handleIncoming(msg){
         console.log(`[board] Telón - keepScores: ${keepScores}, roundNum: ${roundNum}`);
         
         if(!keepScores) {
-            // Es "Nueva partida" - siempre mostrar mensaje de nueva partida
+            // Es "Nueva partida" - SIEMPRE mostrar telón y mensaje
             console.log('[board] Mostrando telón para NUEVA PARTIDA');
             showTerminalMessage('game --new-match --initializing... 🎮');
             showCurtainTransition('NUEVA PARTIDA', 'Cargando nueva partida...');
-        } else if(roundNum > 1) {
-            // Es "Siguiente ronda" - mostrar info de ronda solo si no es la primera ronda
+        } else if(keepScores && roundNum > 1) {
+            // Es "Siguiente ronda" - mostrar info de ronda
             console.log(`[board] Mostrando telón para RONDA ${roundNum}`);
             showTerminalMessage(`round --next=${roundNum} --multiplier=${multiplier}x 🎯`);
+            showCurtainTransition(roundNum, `¡Que comience el desafío!${multiplierText}`);
+        } else if(keepScores && roundNum === 1) {
+            // Es "Iniciar ronda" (primera ronda manteniendo equipos)
+            console.log(`[board] Mostrando telón para inicio de RONDA ${roundNum}`);
+            showTerminalMessage(`round --start=1 --teams-ready 🚀`);
             showCurtainTransition(roundNum, `¡Que comience el desafío!${multiplierText}`);
         }
         
@@ -761,6 +942,136 @@ function showCurtainTransition(roundNumber, subtitle) {
 
 // Función showRoundFinishCurtain eliminada - no se usa
 
+// ===== PERFECT ROUND FUNCTIONS =====
+function playPerfectSound() {
+    try {
+        // Sonido de ronda perfecta: Acordes ascendentes épicos
+        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99]; // C4, E4, G4, C5, E5, G5
+        notes.forEach((freq, index) => {
+            setTimeout(() => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                oscillator.frequency.value = freq;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.6);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.6);
+            }, index * 150);
+        });
+        console.log('🎵 Perfect round sound!');
+    } catch(e) {
+        console.log('Error reproduciendo sonido de ronda perfecta:', e);
+    }
+}
+
+function createPerfectParticles() {
+    const container = document.getElementById('perfectParticles');
+    if (!container) return;
+    
+    // Crear 30 partículas doradas
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'perfect-particle';
+        
+        const randomX = (Math.random() - 0.5) * 600;
+        const randomY = (Math.random() - 0.5) * 400;
+        particle.style.setProperty('--random-x', randomX + 'px');
+        particle.style.setProperty('--random-y', randomY + 'px');
+        particle.style.left = '50%';
+        particle.style.top = '50%';
+        particle.style.animationDelay = (Math.random() * 2) + 's';
+        
+        container.appendChild(particle);
+        
+        // Remover después de la animación
+        setTimeout(() => {
+            if (particle.parentNode) {
+                particle.parentNode.removeChild(particle);
+            }
+        }, 5000);
+    }
+}
+
+function createPerfectRings() {
+    const container = document.getElementById('perfectRings');
+    if (!container) return;
+    
+    // Crear 3 anillos expandiendo
+    for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+            const ring = document.createElement('div');
+            ring.className = 'perfect-ring';
+            ring.style.marginLeft = '-25px';
+            ring.style.marginTop = '-25px';
+            container.appendChild(ring);
+            
+            // Remover después de la animación
+            setTimeout(() => {
+                if (ring.parentNode) {
+                    ring.parentNode.removeChild(ring);
+                }
+            }, 2000);
+        }, i * 600);
+    }
+}
+
+function showPerfectRound(teamName) {
+    const overlay = document.getElementById('perfectRoundOverlay');
+    const teamElement = document.getElementById('perfectTeam');
+    
+    if (!overlay) return;
+    
+    // Configurar datos del equipo
+    if (teamElement) teamElement.textContent = teamName;
+    
+    // Mostrar overlay
+    overlay.style.display = 'flex';
+    
+    // Reproducir sonido épico
+    playPerfectSound();
+    
+    // Mostrar mensaje en terminal
+    showTerminalMessage(`perfect-round --team="${teamName}" --bonus=50 🌟`);
+    
+    // Iniciar efectos especiales
+    setTimeout(() => createPerfectParticles(), 300);
+    setTimeout(() => createPerfectRings(), 500);
+    setTimeout(() => createPerfectParticles(), 2000);
+    
+    console.log(`🌟 ¡Ronda perfecta de ${teamName}!`);
+    
+    // Ocultar después de 4 segundos
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        // Limpiar contenedores
+        const particlesContainer = document.getElementById('perfectParticles');
+        const ringsContainer = document.getElementById('perfectRings');
+        if (particlesContainer) particlesContainer.innerHTML = '';
+        if (ringsContainer) ringsContainer.innerHTML = '';
+    }, 4000);
+    
+    return true; // Indica que se mostró la animación
+}
+
+function checkPerfectRound() {
+    // Verificar si todas las respuestas están reveladas
+    const allRevealed = answers.every(answer => answer.revealed);
+    
+    if (allRevealed && answers.length > 0 && activeTeam) {
+        // ¡Ronda perfecta! El equipo activo respondió todo correctamente
+        setTimeout(() => {
+            showPerfectRound(activeTeam);
+        }, 1000); // Pequeño delay para que se vea la última respuesta
+        
+        return true;
+    }
+    
+    return false;
+}
+
 // ===== WINNER CELEBRATION FUNCTIONS =====
 function playVictorySound() {
     try {
@@ -900,10 +1211,14 @@ function checkGameEnd(roundNumber) {
                 winnerScore = team1Score;
             }
             
-            // Mostrar celebración después de un breve delay
+            // Verificar si hay ronda perfecta en curso
+            const isPerfectRound = checkPerfectRound();
+            const celebrationDelay = isPerfectRound ? 6000 : 2000; // 6s si hay ronda perfecta (1s + 4s animación + 1s buffer), 2s normal
+            
+            // Mostrar celebración después del delay apropiado
             setTimeout(() => {
                 showWinnerCelebration(winnerTeam, winnerScore);
-            }, 2000);
+            }, celebrationDelay);
             
             return true; // Juego terminado
         }
