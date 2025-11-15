@@ -354,8 +354,8 @@ function render() {
                 <div>
                     
                     <button data-action="correct" data-idx="${i}" title="Marcar como acertada" ${a.correct ? 'disabled' : ''}>Acierto</button>
-                    <button data-action="hide" data-idx="${i}">Ocultar</button>
-                    <button data-action="remove" data-idx="${i}">Eliminar</button>
+                    <!--<button data-action="hide" data-idx="${i}">Ocultar</button>-->
+                    <!--<button data-action="remove" data-idx="${i}">Eliminar</button>-->
                 </div>
             `;
         answersEl.appendChild(item);

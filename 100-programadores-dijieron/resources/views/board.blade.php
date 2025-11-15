@@ -97,6 +97,98 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
         }
+
+        /* ===== ANIMACIONES MEJORADAS ===== */
+        
+        /* Transición dramática entre equipos */
+        .team-transition {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .team-transition::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255, 215, 0, 0.4), 
+                rgba(255, 215, 0, 0.8), 
+                rgba(255, 215, 0, 0.4), 
+                transparent
+            );
+            z-index: 2;
+            animation: teamSweep 1.5s ease-in-out;
+        }
+        
+        @keyframes teamSweep {
+            0% { left: -100%; }
+            50% { left: 0%; }
+            100% { left: 100%; }
+        }
+        
+        .team-pulse {
+            animation: teamPulse 0.6s ease-in-out;
+        }
+        
+        @keyframes teamPulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 20px rgba(255, 215, 0, 0.3); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+        
+        /* Efectos de partículas para respuestas altas */
+        .high-score-particles {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            animation: particleFloat 2s ease-out forwards;
+        }
+        
+        @keyframes particleFloat {
+            0% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-100px) scale(0.3);
+            }
+        }
+        
+        .particle.gold { background: #FFD700; }
+        .particle.orange { background: #FFA500; }
+        .particle.yellow { background: #FFFF00; }
+        
+        /* Animación shake para X's */
+        .shake-animation {
+            animation: shakeError 0.8s ease-in-out;
+        }
+        
+        @keyframes shakeError {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+            20%, 40%, 60%, 80% { transform: translateX(8px); }
+        }
+        
+        .strike-flash {
+            animation: strikeFlash 0.5s ease-in-out;
+        }
+        
+        @keyframes strikeFlash {
+            0%, 100% { background-color: transparent; }
+            50% { background-color: rgba(255, 0, 0, 0.3); }
+        }
         
         .perfect-ring {
             position: absolute;
@@ -450,6 +542,13 @@ function render(){
         const a = placement[i] || {text:'',count:0,revealed:false};
         const cell = document.createElement('div');
         cell.className = 'cell' + (a.revealed ? ' revealed' : ' locked');
+        
+        // Agregar data-answer-index para efectos de partículas
+        const originalIndex = answers.findIndex(answer => answer.text === a.text && answer.count === a.count);
+        if (originalIndex !== -1) {
+            cell.setAttribute('data-answer-index', originalIndex);
+        }
+        
         cell.innerHTML = `<div class="text">${a.revealed ? escapeHtml(a.text) : '•••••••••••••••'}</div><div class="count">${a.revealed ? a.count : '---'}</div>`;
         answersEl.appendChild(cell);
         if(a.revealed) total += Number(a.count||0);
@@ -528,6 +627,14 @@ function handleIncoming(msg){
         playSuccessSound(); // ✅ Success sound
         render(); // render triggers the reveal animation on inserted .cell.revealed
         
+        // 🌟 Efectos de partículas para respuestas altas
+        setTimeout(() => {
+            const revealedCell = document.querySelector(`[data-answer-index="${idx}"]`);
+            if (revealedCell && answers[idx].points >= 10) {
+                createHighScoreParticles(revealedCell, answers[idx].points);
+            }
+        }, 800); // Delay para que coincida con la animación de reveal
+        
         // 🌟 Verificar si es ronda perfecta después de un breve delay (solo si no es la última ronda)
         // En la ronda 3, checkGameEnd se encarga de verificar ronda perfecta primero
         if (currentRoundNumber < 3) {
@@ -544,6 +651,24 @@ function handleIncoming(msg){
         if(strikeCount > prevCount) {
             playErrorSound(); // ❌ Compile error sound
             showTerminalMessage(`strike --count=${strikeCount}/3 --penalty=true ❌`);
+            
+            // 💥 Animación shake para nueva X
+            const strikesContainer = document.querySelector('.strikes');
+            const gameBoard = document.querySelector('.game-board');
+            
+            if (strikesContainer) {
+                strikesContainer.classList.add('shake-animation');
+                setTimeout(() => {
+                    strikesContainer.classList.remove('shake-animation');
+                }, 800);
+            }
+            
+            if (gameBoard) {
+                gameBoard.classList.add('strike-flash');
+                setTimeout(() => {
+                    gameBoard.classList.remove('strike-flash');
+                }, 500);
+            }
         }
         renderStrikes();
     } else if(msg.type === 'round_points'){
@@ -682,11 +807,36 @@ function handleIncoming(msg){
         const banner = document.getElementById('activeTurnBanner');
         if(banner) banner.style.display = 'none';
 
-        // Toggle card highlight
+        // Toggle card highlight with dramatic transitions
         const t1Name = team1NameEl ? team1NameEl.textContent : '';
         const t2Name = team2NameEl ? team2NameEl.textContent : '';
-        if(team1CardEl){ team1CardEl.classList.toggle('active', !!activeTeam && activeTeam === t1Name); }
-        if(team2CardEl){ team2CardEl.classList.toggle('active', !!activeTeam && activeTeam === t2Name); }
+        
+        // Remove previous animations
+        if(team1CardEl) team1CardEl.classList.remove('team-transition', 'team-pulse');
+        if(team2CardEl) team2CardEl.classList.remove('team-transition', 'team-pulse');
+        
+        let activeCard = null;
+        if(team1CardEl){ 
+            team1CardEl.classList.toggle('active', !!activeTeam && activeTeam === t1Name);
+            if(!!activeTeam && activeTeam === t1Name) activeCard = team1CardEl;
+        }
+        if(team2CardEl){ 
+            team2CardEl.classList.toggle('active', !!activeTeam && activeTeam === t2Name);
+            if(!!activeTeam && activeTeam === t2Name) activeCard = team2CardEl;
+        }
+        
+        // 🎭 Dramatic team transition effect
+        if(activeCard && activeTeam) {
+            activeCard.classList.add('team-transition');
+            setTimeout(() => {
+                activeCard.classList.add('team-pulse');
+            }, 1000);
+            
+            // Clean up animation classes after completion
+            setTimeout(() => {
+                activeCard.classList.remove('team-transition', 'team-pulse');
+            }, 2100);
+        }
 
         renderTeamScores();
     } else if(msg.type === 'assign_points'){
@@ -1070,6 +1220,52 @@ function checkPerfectRound() {
     }
     
     return false;
+}
+
+// 🌟 Crear efectos de partículas para respuestas altas
+function createHighScoreParticles(element, score) {
+    const rect = element.getBoundingClientRect();
+    const container = document.createElement('div');
+    container.className = 'high-score-particles';
+    container.style.left = rect.left + 'px';
+    container.style.top = rect.top + 'px';
+    container.style.width = rect.width + 'px';
+    container.style.height = rect.height + 'px';
+    
+    document.body.appendChild(container);
+    
+    // Determinar cantidad de partículas según el score
+    let particleCount = 0;
+    if (score >= 30) particleCount = 15; // Top respuestas
+    else if (score >= 20) particleCount = 10; // Respuestas altas
+    else if (score >= 10) particleCount = 5; // Respuestas medias
+    
+    // Crear partículas
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        
+        // Color según score
+        if (score >= 30) particle.classList.add('gold');
+        else if (score >= 20) particle.classList.add('orange');
+        else particle.classList.add('yellow');
+        
+        // Posición aleatoria
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.top = Math.random() * 100 + '%';
+        
+        // Delay aleatorio
+        particle.style.animationDelay = Math.random() * 0.5 + 's';
+        
+        container.appendChild(particle);
+    }
+    
+    // Limpiar después de la animación
+    setTimeout(() => {
+        if (document.body.contains(container)) {
+            document.body.removeChild(container);
+        }
+    }, 2500);
 }
 
 // ===== WINNER CELEBRATION FUNCTIONS =====
