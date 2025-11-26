@@ -261,9 +261,9 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 
 **[SMJV9](https://github.com/SMJV9)**
 
-📧 Email: [vasquez.jcesar@gmail.com](mailto:vasquez.jcesar@gmail.com?subject=Consulta%20sobre%20100%20Programadores%20Dijieron&body=Hola%20César,%0D%0A%0D%0AMe%20interesa%20tu%20proyecto%20"100%20Programadores%20Dijieron"...%0D%0A%0D%0ASaludos!)  
+📧 Email: [vasquez.jcesar@gmail.com](mailto:vasquez.jcesar@gmail.com)  
 🐱 GitHub: [@SMJV9](https://github.com/SMJV9)  
-🌐 LinkedIn: [Julio Vasquez](www.linkedin.com/in/vasquezajc)  
+🌐 LinkedIn: [Julio Vasquez](https://www.linkedin.com/in/vasquezajc)  
 
 ---
 
