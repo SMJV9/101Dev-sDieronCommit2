@@ -26,7 +26,9 @@ class QuestionController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:questions',
             'question_text' => 'required|string',
+            'description' => 'nullable|string',
             'category' => 'nullable|string|max:255',
+            'question_type' => 'required|in:round,fast_money',
             'answers' => 'required|array|min:1',
             'answers.*.text' => 'required|string',
             'answers.*.points' => 'required|integer|min:0',
@@ -40,7 +42,9 @@ class QuestionController extends Controller
         $question = Question::create([
             'name' => $request->name,
             'question_text' => $request->question_text,
+            'description' => $request->description,
             'category' => $request->category ?? 'general',
+            'question_type' => $request->question_type,
             'is_active' => true,
         ]);
 
@@ -95,7 +99,9 @@ class QuestionController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:questions,name,' . $id,
             'question_text' => 'required|string',
+            'description' => 'nullable|string',
             'category' => 'nullable|string|max:255',
+            'question_type' => 'required|in:round,fast_money',
             'answers' => 'required|array|min:1',
             'answers.*.text' => 'required|string',
             'answers.*.points' => 'required|integer|min:0',
@@ -109,7 +115,9 @@ class QuestionController extends Controller
         $question->update([
             'name' => $request->name,
             'question_text' => $request->question_text,
+            'description' => $request->description,
             'category' => $request->category ?? 'general',
+            'question_type' => $request->question_type,
         ]);
 
         // Eliminar respuestas anteriores

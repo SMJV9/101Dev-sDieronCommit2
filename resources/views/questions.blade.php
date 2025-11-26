@@ -35,6 +35,17 @@
             </select>
         </div>
         <div style="margin-bottom:12px">
+            <label>Tipo de Pregunta:</label>
+            <select id="newQuestionType" style="width:100%">
+                <option value="round">🎯 Ronda Normal (Para juego principal)</option>
+                <option value="fast_money">💰 Dinero Rápido (Para ronda especial)</option>
+            </select>
+            <div style="font-size:0.85rem;color:var(--muted);margin-top:4px;padding:8px;background:rgba(102,252,241,0.05);border-radius:4px;">
+                <strong>Ronda Normal:</strong> Preguntas para las 3 rondas principales del juego<br>
+                <strong>Dinero Rápido:</strong> Preguntas especiales para la ronda final de dinero rápido
+            </div>
+        </div>
+        <div style="margin-bottom:12px">
             <label>Respuestas:</label>
             <div id="newAnswersList"></div>
             <button id="addNewAnswer" class="btn-secondary" style="margin-top:8px">+ Agregar Respuesta</button>
@@ -72,6 +83,7 @@ function loadSavedQuestions() {
                     name: q.name,
                     question: q.question_text,
                     category: q.category,
+                    question_type: q.question_type || 'round',
                     is_active: q.is_active,
                     times_used: q.times_used,
                     answers: q.answers.map(a => ({
@@ -165,10 +177,13 @@ document.getElementById('saveNewQuestion').addEventListener('click', () => {
             points: a.count
         }));
     
+    const questionType = document.getElementById('newQuestionType').value;
+    
     const data = {
         name: name,
         question_text: questionText,
         category: category,
+        question_type: questionType,
         answers: validAnswers
     };
     
@@ -204,6 +219,7 @@ function clearForm() {
     document.getElementById('newQuestionName').value = '';
     document.getElementById('newQuestionText').value = '';
     document.getElementById('newQuestionCategory').value = 'general'; // Reset al valor por defecto
+    document.getElementById('newQuestionType').value = 'round'; // Reset al valor por defecto
     newAnswers = [];
     editingQuestionId = null;
     renderNewAnswers();
@@ -257,6 +273,7 @@ function renderQuestionsList() {
             </div>
             <div class="question-meta">
                 <span class="category-badge">${categoryName}</span>
+                <span class="type-badge ${data.question_type === 'fast_money' ? 'type-fast-money' : 'type-round'}">${data.question_type === 'fast_money' ? '⚡ Dinero Rápido' : '🎯 Ronda'}</span>
                 <span class="usage-count">Usada ${data.times_used} veces</span>
             </div>
             <div class="question-text">${escapeHtml(data.question)}</div>
@@ -306,12 +323,13 @@ function editQuestion(id) {
     // Fill form with existing data
     document.getElementById('newQuestionName').value = data.name;
     document.getElementById('newQuestionText').value = data.question;
-        document.getElementById('newQuestionCategory').value = data.category; // Funciona con el select
+    document.getElementById('newQuestionCategory').value = data.category; // Funciona con el select
+    document.getElementById('newQuestionType').value = data.question_type || 'round'; // Set question type
     
-        // Load answers ordenadas por puntos (mayor a menor)
-        newAnswers = [...data.answers]
-            .sort((a, b) => b.count - a.count)
-            .map(a => ({text: a.text, count: a.count}));
+    // Load answers ordenadas por puntos (mayor a menor)
+    newAnswers = [...data.answers]
+        .sort((a, b) => b.count - a.count)
+        .map(a => ({text: a.text, count: a.count}));
     renderNewAnswers();
     
     // Set editing mode

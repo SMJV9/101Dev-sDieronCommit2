@@ -39,4 +39,24 @@ class Game extends Model
     {
         return $this->hasOne(Round::class)->where('status', 'in_progress')->latest();
     }
+
+    public function questions()
+    {
+        return $this->belongsToMany(Question::class, 'game_questions')
+                    ->withPivot('question_type', 'round_number', 'order_in_round')
+                    ->withTimestamps();
+    }
+
+    public function roundQuestions()
+    {
+        return $this->questions()->wherePivot('question_type', 'round')
+                    ->orderBy('pivot_round_number')
+                    ->orderBy('pivot_order_in_round');
+    }
+
+    public function fastMoneyQuestions()
+    {
+        return $this->questions()->wherePivot('question_type', 'fast_money')
+                    ->orderBy('pivot_order_in_round');
+    }
 }

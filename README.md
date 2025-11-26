@@ -261,7 +261,7 @@ Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para
 
 **[SMJV9](https://github.com/SMJV9)**
 
-📧 Email: vasquez.jcesar@gmail.com
+📧 Email: vasquez.jcesar@gmail.com  
 🐱 GitHub: [@SMJV9](https://github.com/SMJV9)  
 🌐 LinkedIn: [Julio Vasquez](https://www.linkedin.com/in/vasquezajc)  
 

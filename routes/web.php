@@ -19,6 +19,11 @@ Route::get('/quickgame-control', function(){ return view('quickgame_control'); }
 Route::get('/quickgame-display', function(){ return view('quickgame_display'); })->name('quickgame.display');
 Route::post('/round/allocate', [GameController::class, 'allocate'])->name('round.allocate');
 
+// Rutas para gestión de partidas
+Route::get('/games', function () {
+    return view('games');
+})->name('games');
+
 // API Routes para gestión de preguntas
 Route::prefix('api')->group(function () {
     Route::get('/questions', [QuestionController::class, 'index'])->name('api.questions.index');
@@ -28,5 +33,12 @@ Route::prefix('api')->group(function () {
     Route::delete('/questions/{id}', [QuestionController::class, 'destroy'])->name('api.questions.destroy');
     Route::post('/questions/{id}/toggle-active', [QuestionController::class, 'toggleActive'])->name('api.questions.toggle');
     Route::get('/questions/{id}/load', [QuestionController::class, 'loadToController'])->name('api.questions.load');
+    
+    // API Routes para gestión de partidas
+    Route::get('/games', [\App\Http\Controllers\GameSetupController::class, 'index'])->name('api.games.index');
+    Route::post('/games', [\App\Http\Controllers\GameSetupController::class, 'store'])->name('api.games.store');
+    Route::get('/games/{id}', [\App\Http\Controllers\GameSetupController::class, 'show'])->name('api.games.show');
+    Route::get('/games/{id}/load', [\App\Http\Controllers\GameSetupController::class, 'loadToGame'])->name('api.games.load');
+    Route::get('/questions/type/{type}', [\App\Http\Controllers\GameSetupController::class, 'getQuestionsByType'])->name('api.questions.bytype');
 });
 

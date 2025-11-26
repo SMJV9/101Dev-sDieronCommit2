@@ -257,6 +257,23 @@ button:active{
     font-weight:600;
 }
 
+.type-badge{
+    padding:4px 8px;
+    border-radius:4px;
+    font-weight:600;
+    font-size:11px;
+}
+
+.type-round{
+    background:rgba(69,162,158,0.2);
+    color:var(--accent2);
+}
+
+.type-fast-money{
+    background:rgba(255,193,7,0.2);
+    color:#ffc107;
+}
+
 .usage-count{
     color:var(--muted);
 }
