@@ -1,61 +1,284 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🎮 100 Programadores Dijieron
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+<div align="center">
 
-## About Laravel
+**Un juego interactivo estilo "Preguntados" diseñado especialmente para desarrolladores**
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+![Laravel](https://img.shields.io/badge/Laravel-12.0-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)
+![PHP](https://img.shields.io/badge/PHP-8.2+-777BB4?style=for-the-badge&logo=php&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![Made with Laravel](https://img.shields.io/badge/Made%20with-Laravel-red.svg)](https://laravel.com/)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+</div>
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## 🎯 ¿Qué es este proyecto?
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+**100 Programadores Dijieron** es un juego interactivo inspirado en el famoso programa de televisión "100 Mexicanos Dijieron". Está diseñado específicamente para desarrolladores y equipos de tecnología, con preguntas relacionadas con programación, desarrollo web, y la cultura geek.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### ✨ Características Principales
 
-## Laravel Sponsors
+🎮 **Juego en Tiempo Real** - Experiencia multijugador con tablero dinámico  
+📋 **Sistema CRUD Completo** - Gestiona preguntas y respuestas fácilmente  
+🏆 **Sistema de Puntuación** - Equipos competitivos con multiplicadores  
+🎨 **Interfaz Moderna** - Diseño responsivo y animaciones atractivas  
+⚡ **Tiempo Real** - Sincronización automática entre controller y tablero  
+📊 **Estadísticas** - Tracking de preguntas más utilizadas  
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+---
 
-### Premium Partners
+## 🚀 Inicio Rápido
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### Prerrequisitos
 
-## Contributing
+```bash
+PHP >= 8.2
+Composer
+Node.js & NPM
+MySQL 8.0+
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 1. Clonar el repositorio
 
-## Code of Conduct
+```bash
+git clone https://github.com/SMJV9/alexpelon.git
+cd alexpelon
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### 2. Instalar dependencias
 
-## Security Vulnerabilities
+```bash
+# Dependencias PHP
+composer install
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Dependencias JavaScript
+npm install
+```
 
-## License
+### 3. Configurar entorno
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+# Copiar archivo de configuración
+cp .env.example .env
+
+# Generar clave de aplicación
+php artisan key:generate
+
+# Configurar base de datos en .env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=devdijieron
+DB_USERNAME=tu_usuario
+DB_PASSWORD=tu_password
+```
+
+### 4. Preparar base de datos
+
+```bash
+# Ejecutar migraciones
+php artisan migrate
+
+# Cargar datos de ejemplo
+php artisan db:seed --class=QuestionSeeder
+```
+
+### 5. Iniciar el servidor
+
+```bash
+# Servidor Laravel
+php artisan serve
+
+# Compilar assets (en otra terminal)
+npm run dev
+```
+
+**🎉 ¡Listo!** Visita `http://localhost:8000`
+
+---
+
+## 🎮 Cómo Jugar
+
+### 🎯 Flujo del Juego
+
+1. **Crear/Gestionar Preguntas** → `/questions`
+2. **Controlar el Juego** → `/controller` 
+3. **Mostrar Tablero** → `/tablero`
+
+### 📱 Pantallas del Juego
+
+| Ruta | Descripción | Función |
+|------|-------------|---------|
+| `/` | Página de inicio | Bienvenida y navegación |
+| `/questions` | **Banco de preguntas** | CRUD completo de preguntas |
+| `/controller` | **Panel de control** | Controlar el juego en vivo |
+| `/tablero` | **Tablero principal** | Display para la audiencia |
+
+### 🎲 Ejemplo de Partida
+
+```
+1. 💻 Admin crea pregunta: "¿Qué lenguaje usan más?"
+   Respuestas: JavaScript (40pts), Python (30pts), Java (20pts)...
+
+2. 🎮 Controller carga la pregunta al tablero
+
+3. 👥 Equipos compiten por revelar respuestas
+
+4. 🏆 Puntos se acumulan automáticamente
+
+5. 🎯 El equipo con más puntos gana la ronda
+```
+
+---
+
+## 🛠️ Tecnologías Utilizadas
+
+### Backend
+- **Laravel 12** - Framework PHP moderno
+- **MySQL** - Base de datos relacional
+- **Eloquent ORM** - Manejo de datos elegante
+
+### Frontend  
+- **Blade Templates** - Sistema de plantillas de Laravel
+- **Vite** - Build tool moderno
+- **CSS3** - Estilos personalizados con animaciones
+- **JavaScript ES6+** - Interactividad dinámica
+
+### Desarrollo
+- **Composer** - Gestión de dependencias PHP
+- **NPM** - Gestión de dependencias JavaScript
+- **Laravel Pint** - Code styling
+- **PHPUnit** - Testing
+
+---
+
+## 📊 Estructura del Proyecto
+
+```
+📦 100-programadores-dijieron/
+├── 🎮 app/
+│   ├── Http/Controllers/     # Lógica del juego
+│   └── Models/              # Game, Question, Answer, Round
+├── 🗄️ database/
+│   ├── migrations/          # Estructura de BD
+│   └── seeders/            # Datos de ejemplo
+├── 🎨 resources/
+│   ├── views/              # Pantallas del juego
+│   ├── css/               # Estilos (board, controller, questions)
+│   └── js/                # JavaScript interactivo
+├── 🛣️ routes/
+│   └── web.php            # Rutas de la aplicación
+└── 📚 Documentación/
+    ├── GUIA_RAPIDA.md     # Tutorial de uso
+    ├── DATABASE.md        # Esquema de BD
+    └── CRUD_PREGUNTAS.md  # Manual CRUD
+```
+
+---
+
+## 🎯 Características Destacadas
+
+### 💡 Sistema CRUD Inteligente
+- ✅ Crear preguntas con múltiples respuestas
+- ✏️ Editar preguntas existentes
+- 🔒 Activar/Desactivar preguntas
+- 📊 Estadísticas de uso
+- 🏷️ Categorización automática
+
+### 🎮 Controller Avanzado
+- 🚀 Carga automática de preguntas
+- ⏱️ Sistema de cuenta regresiva
+- 🏆 Gestión de equipos y puntuación
+- ✨ Multiplicadores de ronda
+- ❌ Sistema de 3 strikes
+
+### 🖥️ Tablero Dinámico
+- 📺 Visualización en tiempo real
+- 🎨 Animaciones fluidas
+- 📱 Diseño responsivo
+- 🎯 Indicadores visuales
+- 🔄 Sincronización automática
+
+---
+
+## 📝 Documentación Adicional
+
+| Documento | Descripción |
+|-----------|-------------|
+| [📖 Guía Rápida](GUIA_RAPIDA.md) | Tutorial paso a paso |
+| [🗄️ Base de Datos](DATABASE.md) | Esquema y relaciones |
+| [📋 CRUD Manual](CRUD_PREGUNTAS.md) | Sistema de gestión |
+| [🔄 Migraciones](MIGRACIONES_COMPLETADAS.md) | Historial de cambios |
+
+---
+
+## 🤝 Contribuir
+
+¡Las contribuciones son bienvenidas! 
+
+### 🚀 Cómo contribuir:
+
+1. **Fork** el proyecto
+2. **Crea** una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. **Commit** tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. **Push** a la rama (`git push origin feature/AmazingFeature`)
+5. **Abre** un Pull Request
+
+### 💡 Ideas para contribuir:
+- 🎨 Nuevos temas visuales
+- 📱 Mejoras mobile-first
+- 🎮 Nuevos tipos de juego
+- 🔊 Efectos de sonido
+- 📊 Dashboard de estadísticas
+- 🌐 Modo multijugador online
+
+---
+
+## 🐛 Reportar Bugs
+
+¿Encontraste un bug? ¡Ayúdanos a mejorarlo!
+
+1. **Verifica** que no esté ya reportado en [Issues](../../issues)
+2. **Crea** un nuevo issue con:
+   - 📝 Descripción clara del problema
+   - 🔄 Pasos para reproducirlo
+   - 📱 Información del entorno (OS, PHP, navegador)
+   - 📸 Screenshots si es posible
+
+---
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver el archivo [LICENSE](LICENSE) para más detalles.
+
+---
+
+## 👨‍💻 Autor
+
+**[SMJV9](https://github.com/SMJV9)**
+
+📧 Email: [tu-email@example.com]  
+🐱 GitHub: [@SMJV9](https://github.com/SMJV9)  
+🌐 LinkedIn: [Tu LinkedIn]  
+
+---
+
+## 🎉 ¡Disfruta el Juego!
+
+<div align="center">
+
+**¿Te gustó el proyecto? ¡Dale una ⭐ en GitHub!**
+
+*Hecho con ❤️ para la comunidad de desarrolladores*
+
+---
+
+![Laravel](https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)
+![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white)
+
+</div>
