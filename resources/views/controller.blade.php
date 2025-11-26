@@ -73,7 +73,7 @@
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
                 <button id="quickGameBtn" style="margin-left:10px;background:linear-gradient(135deg,#06b6d4 0%, #06b6d4 100%);color:#042022">⚡ Juego rápido (Control)</button>
-                <button id="quickGameDisplayBtn" style="margin-left:6px;background:linear-gradient(90deg,#06d6a0,#06b6d4);color:#042022">🖥️ Abrir tablero rápido</button>
+                <button id="fastMoneyBtn" style="margin-left:6px;background:linear-gradient(90deg,#f59e0b,#d97706);color:#ffffff;opacity:0.5;cursor:not-allowed" disabled>💰 DINERO RÁPIDO</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
             <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
@@ -146,6 +146,23 @@ function initializeConnection() {
     
     // Configurar listeners después de inicializar
     setupMessageListeners();
+}
+
+// Function to unlock Fast Money mode
+function unlockFastMoney() {
+    const fastMoneyBtn = document.getElementById('fastMoneyBtn');
+    if(fastMoneyBtn) {
+        fastMoneyBtn.disabled = false;
+        fastMoneyBtn.style.opacity = '1';
+        fastMoneyBtn.style.cursor = 'pointer';
+        fastMoneyBtn.style.background = 'linear-gradient(90deg,#f59e0b,#d97706)';
+        fastMoneyBtn.innerHTML = '💰 DINERO RÁPIDO <span style="font-size:10px;opacity:0.8">¡DISPONIBLE!</span>';
+        
+        // Add glow effect
+        fastMoneyBtn.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.5)';
+        
+        showTerminalMessage('fast-money --status=unlocked --condition=round3-complete 🔓');
+    }
 }
 
 // fallback send/receive via localStorage
@@ -1314,7 +1331,214 @@ function handleIncoming(msg){
             const pts = Number((msg.payload && msg.payload.points) || 0);
             if(t){ if(!(t in teamScores)) teamScores[t] = 0; teamScores[t] = Number(teamScores[t]||0) + pts; persistTeamScores(); renderTeamScores(); }
         }
+        
+        // Handle Fast Money unlock notification from board
+        if(msg.type === 'unlock_fast_money'){
+            console.log('💰 Board notifica: Dinero Rápido desbloqueado');
+            unlockFastMoney();
+        }
 }
+
+// ===== FAST MONEY CONTROLLER FUNCTIONS =====
+
+let currentFastMoneyData = null;
+let currentQuestionIndex = 0;
+let fastMoneyScore = 0;
+
+const fastMoneyQuestions = [
+    { 
+        question: "Nombra un lenguaje de programación popular", 
+        answers: ["JavaScript", "Python", "Java", "C++", "C#"], 
+        points: [38, 25, 18, 12, 7] 
+    },
+    { 
+        question: "Nombra un navegador web", 
+        answers: ["Chrome", "Firefox", "Safari", "Edge", "Opera"], 
+        points: [45, 22, 15, 12, 6] 
+    },
+    { 
+        question: "Nombra una red social", 
+        answers: ["Facebook", "Instagram", "Twitter", "TikTok", "LinkedIn"], 
+        points: [35, 28, 20, 10, 7] 
+    },
+    { 
+        question: "Nombra un sistema operativo", 
+        answers: ["Windows", "macOS", "Linux", "Android", "iOS"], 
+        points: [40, 25, 15, 12, 8] 
+    },
+    { 
+        question: "Nombra una empresa de tecnología", 
+        answers: ["Google", "Apple", "Microsoft", "Amazon", "Meta"], 
+        points: [32, 28, 22, 10, 8] 
+    }
+];
+
+function showFastMoneyController() {
+    const controller = document.getElementById('fastMoneyController');
+    if(!controller) return;
+    
+    controller.style.display = 'flex';
+    
+    // Enviar mensaje al tablero para cambiar a modo Dinero Rápido
+    sendMessage({type: 'switch_fast_money', payload: {mode: 'start'}});
+    
+    // Initialize controller
+    initializeFastMoneyController();
+    
+    showTerminalMessage('fast-money --controller=active --status=ready 💰');
+}
+
+function hideFastMoneyController() {
+    const controller = document.getElementById('fastMoneyController');
+    if(controller) {
+        controller.style.display = 'none';
+    }
+    
+    // Send exit message to board
+    sendMessage({type: 'switch_fast_money', payload: {mode: 'exit'}});
+    
+    showTerminalMessage('fast-money --controller=closed --status=inactive 🚪');
+}
+
+function initializeFastMoneyController() {
+    currentQuestionIndex = 0;
+    fastMoneyScore = 0;
+    currentFastMoneyData = null;
+    
+    // Reset UI
+    document.getElementById('fastControlScore').textContent = '0';
+    document.getElementById('currentQuestionText').textContent = 'Selecciona una pregunta';
+    document.getElementById('fastControlStatus').textContent = '¡Listo para comenzar!';
+    
+    // Reset answers
+    for(let i = 1; i <= 5; i++) {
+        document.getElementById(`answer${i}`).value = '';
+        document.getElementById(`points${i}`).textContent = '--';
+        document.getElementById(`reveal${i}`).disabled = true;
+        document.querySelector(`[data-answer="${i-1}"]`).classList.remove('revealed');
+    }
+    
+    document.getElementById('nextQuestionBtn').disabled = true;
+}
+
+function loadFastMoneyQuestion() {
+    const selectedIndex = document.getElementById('questionSelect').value;
+    const question = fastMoneyQuestions[selectedIndex];
+    
+    if(!question) return;
+    
+    currentFastMoneyData = question;
+    currentQuestionIndex = parseInt(selectedIndex);
+    
+    // Update question display
+    document.getElementById('currentQuestionText').textContent = question.question;
+    
+    // Load answers
+    for(let i = 0; i < 5; i++) {
+        document.getElementById(`answer${i + 1}`).value = question.answers[i] || '';
+        document.getElementById(`points${i + 1}`).textContent = question.points[i] || 0;
+        document.getElementById(`reveal${i + 1}`).disabled = false;
+        document.querySelector(`[data-answer="${i}"]`).classList.remove('revealed');
+    }
+    
+    // Send question to board
+    sendMessage({
+        type: 'fast_money_question',
+        payload: {
+            question: question.question,
+            index: currentQuestionIndex
+        }
+    });
+    
+    document.getElementById('fastControlStatus').textContent = `Pregunta ${currentQuestionIndex + 1} cargada - ¡Lista para revelar respuestas!`;
+    document.getElementById('nextQuestionBtn').disabled = false;
+}
+
+function revealFastMoneyAnswer(answerIndex) {
+    if(!currentFastMoneyData) return;
+    
+    const answer = currentFastMoneyData.answers[answerIndex];
+    const points = currentFastMoneyData.points[answerIndex];
+    
+    if(!answer) return;
+    
+    // Update local score
+    fastMoneyScore += points;
+    document.getElementById('fastControlScore').textContent = fastMoneyScore;
+    
+    // Mark as revealed
+    document.querySelector(`[data-answer="${answerIndex}"]`).classList.add('revealed');
+    document.getElementById(`reveal${answerIndex + 1}`).disabled = true;
+    
+    // Send to board
+    sendMessage({
+        type: 'fast_money_reveal',
+        payload: {
+            answerIndex: answerIndex,
+            answer: answer,
+            points: points,
+            totalScore: fastMoneyScore
+        }
+    });
+    
+    // Update status
+    document.getElementById('fastControlStatus').textContent = `¡+${points} puntos! Total: ${fastMoneyScore}/200`;
+    
+    showTerminalMessage(`fast-money --reveal="${answer}" --points=${points} --total=${fastMoneyScore} ✅`);
+}
+
+function nextFastMoneyQuestion() {
+    if(currentQuestionIndex < fastMoneyQuestions.length - 1) {
+        const nextIndex = currentQuestionIndex + 1;
+        document.getElementById('questionSelect').value = nextIndex;
+        loadFastMoneyQuestion();
+    } else {
+        document.getElementById('fastControlStatus').textContent = '¡Última pregunta completada!';
+        document.getElementById('nextQuestionBtn').disabled = true;
+    }
+}
+
+function resetFastMoney() {
+    if(confirm('¿Estás seguro de reiniciar el Dinero Rápido?')) {
+        initializeFastMoneyController();
+        sendMessage({type: 'fast_money_reset', payload: {}});
+        showTerminalMessage('fast-money --action=reset --status=initialized 🔄');
+    }
+}
+
+function finishFastMoney() {
+    const success = fastMoneyScore >= 200;
+    const message = success ? '¡¡¡FELICIDADES!!! ¡Dinero Rápido completado!' : 'Dinero Rápido terminado. ¡Mejor suerte la próxima vez!';
+    
+    alert(message);
+    
+    sendMessage({
+        type: 'fast_money_finish',
+        payload: {
+            success: success,
+            finalScore: fastMoneyScore
+        }
+    });
+    
+    showTerminalMessage(`fast-money --finish=true --score=${fastMoneyScore} --success=${success} 🏆`);
+}
+
+// Event listeners for Fast Money Controller
+document.addEventListener('DOMContentLoaded', function() {
+    // Load question button
+    document.getElementById('loadQuestion')?.addEventListener('click', loadFastMoneyQuestion);
+    
+    // Reveal buttons
+    for(let i = 1; i <= 5; i++) {
+        document.getElementById(`reveal${i}`)?.addEventListener('click', () => revealFastMoneyAnswer(i - 1));
+    }
+    
+    // Action buttons
+    document.getElementById('nextQuestionBtn')?.addEventListener('click', nextFastMoneyQuestion);
+    document.getElementById('resetFastMoney')?.addEventListener('click', resetFastMoney);
+    document.getElementById('finishFastMoney')?.addEventListener('click', finishFastMoney);
+    document.getElementById('fastControlExit')?.addEventListener('click', hideFastMoneyController);
+});
 
 // logging disabled
 function logCtrl(text){}
@@ -1648,8 +1872,16 @@ function finishQuickGame(){
 
 // wire start button
 if(quickGameBtn){ quickGameBtn.addEventListener('click', startQuickGame); }
-const quickGameDisplayBtn = document.getElementById('quickGameDisplayBtn');
-if(quickGameDisplayBtn){ quickGameDisplayBtn.addEventListener('click', ()=>{ window.open('/quickgame-display', '_blank'); }); }
+// Fast Money mode button
+const fastMoneyBtn = document.getElementById('fastMoneyBtn');
+if(fastMoneyBtn){ 
+    fastMoneyBtn.addEventListener('click', ()=>{
+        if(!fastMoneyBtn.disabled) {
+            // Abrir controlador de Dinero Rápido
+            showFastMoneyController();
+        }
+    });
+}
 
 // Inicializar conexión cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', initializeConnection);
@@ -1669,6 +1901,89 @@ if (document.readyState === 'loading') {
     <span style="color:#66fcf1;">~$</span>
     <span id="connType" style="color:#00ff00;">conectando...</span>
     <span id="terminalCursor" style="color:#00ff00;animation:blink 1s infinite;">▋</span>
+</div>
+
+<!-- Fast Money Controller Interface -->
+<div id="fastMoneyController" class="fast-money-controller" style="display:none;">
+    <div class="fast-money-overlay-bg"></div>
+    <div class="fast-money-control-container">
+        <div class="fast-money-control-header">
+            <h1 class="fast-money-control-title">💰 CONTROL DINERO RÁPIDO</h1>
+            <div class="fast-money-control-info">
+                <span class="target-info">META: 200 PUNTOS</span>
+                <span class="current-score">PUNTOS: <span id="fastControlScore">0</span></span>
+                <button id="fastControlExit" class="fast-control-exit">× Cerrar</button>
+            </div>
+        </div>
+        
+        <div class="fast-money-control-content">
+            <div class="questions-panel">
+                <h3 class="panel-title">🎯 PREGUNTAS</h3>
+                <div class="question-selector">
+                    <select id="questionSelect" class="question-dropdown">
+                        <option value="0">1. Lenguaje de programación popular</option>
+                        <option value="1">2. Navegador web</option>
+                        <option value="2">3. Red social</option>
+                        <option value="3">4. Sistema operativo</option>
+                        <option value="4">5. Empresa de tecnología</option>
+                    </select>
+                    <button id="loadQuestion" class="load-question-btn">📤 Cargar</button>
+                </div>
+                
+                <div class="current-question-display">
+                    <div class="question-text" id="currentQuestionText">Selecciona una pregunta</div>
+                </div>
+            </div>
+            
+            <div class="answers-control-panel">
+                <h3 class="panel-title">✅ RESPUESTAS</h3>
+                <div class="answers-grid-control">
+                    <div class="answer-control-item" data-answer="0">
+                        <div class="answer-number">1.</div>
+                        <input type="text" class="answer-input" id="answer1" placeholder="Respuesta #1" readonly>
+                        <div class="points-display" id="points1">--</div>
+                        <button class="reveal-btn" id="reveal1" disabled>🔓 Revelar</button>
+                    </div>
+                    <div class="answer-control-item" data-answer="1">
+                        <div class="answer-number">2.</div>
+                        <input type="text" class="answer-input" id="answer2" placeholder="Respuesta #2" readonly>
+                        <div class="points-display" id="points2">--</div>
+                        <button class="reveal-btn" id="reveal2" disabled>🔓 Revelar</button>
+                    </div>
+                    <div class="answer-control-item" data-answer="2">
+                        <div class="answer-number">3.</div>
+                        <input type="text" class="answer-input" id="answer3" placeholder="Respuesta #3" readonly>
+                        <div class="points-display" id="points3">--</div>
+                        <button class="reveal-btn" id="reveal3" disabled>🔓 Revelar</button>
+                    </div>
+                    <div class="answer-control-item" data-answer="3">
+                        <div class="answer-number">4.</div>
+                        <input type="text" class="answer-input" id="answer4" placeholder="Respuesta #4" readonly>
+                        <div class="points-display" id="points4">--</div>
+                        <button class="reveal-btn" id="reveal4" disabled>🔓 Revelar</button>
+                    </div>
+                    <div class="answer-control-item" data-answer="4">
+                        <div class="answer-number">5.</div>
+                        <input type="text" class="answer-input" id="answer5" placeholder="Respuesta #5" readonly>
+                        <div class="points-display" id="points5">--</div>
+                        <button class="reveal-btn" id="reveal5" disabled>🔓 Revelar</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="fast-money-actions">
+                <div class="actions-row">
+                    <button id="nextQuestionBtn" class="action-btn next-question" disabled>▶️ Siguiente Pregunta</button>
+                    <button id="resetFastMoney" class="action-btn reset-game">🔄 Reiniciar</button>
+                    <button id="finishFastMoney" class="action-btn finish-game">🏆 Finalizar</button>
+                </div>
+                
+                <div class="fast-money-status">
+                    <div id="fastControlStatus" class="control-status">¡Listo para comenzar!</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 </body>

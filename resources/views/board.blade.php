@@ -190,6 +190,188 @@
             50% { background-color: rgba(255, 0, 0, 0.3); }
         }
         
+        @keyframes pointsEffect {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -70px) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -100px) scale(0.8); }
+        }
+        
+        @keyframes finishPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+        }
+        
+        /* ===== DINERO RÁPIDO STYLES ===== */
+        
+        .fast-money-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .fast-money-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+        }
+        
+        .fast-money-container {
+            position: relative;
+            width: 90%;
+            max-width: 800px;
+            background: rgba(11, 12, 16, 0.95);
+            border-radius: 16px;
+            border: 2px solid #f59e0b;
+            box-shadow: 0 0 50px rgba(245, 158, 11, 0.3);
+            padding: 30px;
+        }
+        
+        .fast-money-header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .fast-money-title {
+            font-size: 36px;
+            font-weight: 900;
+            color: #f59e0b;
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+            margin: 0;
+            animation: fastMoneyGlow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes fastMoneyGlow {
+            0% { text-shadow: 0 0 20px rgba(245, 158, 11, 0.6); }
+            100% { text-shadow: 0 0 30px rgba(245, 158, 11, 0.8), 0 0 40px rgba(245, 158, 11, 0.4); }
+        }
+        
+        .fast-money-target {
+            font-size: 18px;
+            color: #66fcf1;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .fast-money-exit {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .fast-money-content {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+        
+        .fast-money-score {
+            text-align: center;
+            background: rgba(102, 252, 241, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid #66fcf1;
+        }
+        
+        .score-label {
+            font-size: 14px;
+            color: #66fcf1;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .score-value {
+            font-size: 48px;
+            font-weight: 900;
+            color: #f59e0b;
+            text-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
+        }
+        
+        .fast-money-questions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .current-question {
+            font-size: 24px;
+            font-weight: bold;
+            color: #66fcf1;
+            text-align: center;
+            margin-bottom: 30px;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .answers-grid {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .answer-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: rgba(102, 252, 241, 0.05);
+            border: 1px solid rgba(102, 252, 241, 0.2);
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .answer-item.revealed {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: #f59e0b;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+        }
+        
+        .answer-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #c5c6c7;
+        }
+        
+        .answer-points {
+            font-size: 20px;
+            font-weight: 900;
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            padding: 5px 12px;
+            border-radius: 6px;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        .status-message {
+            text-align: center;
+            font-size: 16px;
+            color: #66fcf1;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        
         .perfect-ring {
             position: absolute;
             border: 3px solid rgba(255, 215, 0, 0.6);
@@ -389,6 +571,58 @@
     </div>
     <div class="perfect-particles" id="perfectParticles"></div>
     <div class="perfect-rings" id="perfectRings"></div>
+</div>
+
+<!-- Modo Dinero Rápido -->
+<div id="fastMoneyOverlay" class="fast-money-overlay" style="display:none;">
+    <div class="fast-money-background"></div>
+    <div class="fast-money-container">
+        <div class="fast-money-header">
+            <h1 class="fast-money-title">💰 DINERO RÁPIDO</h1>
+            <div class="fast-money-target">META: 200 PUNTOS</div>
+            <button id="fastMoneyExit" class="fast-money-exit">× Salir</button>
+        </div>
+        
+        <div class="fast-money-content">
+            <div class="fast-money-score">
+                <div class="score-label">PUNTOS TOTALES</div>
+                <div id="fastMoneyScore" class="score-value">0</div>
+            </div>
+            
+            <div class="fast-money-questions">
+                <div class="question-display">
+                    <div id="fastMoneyQuestion" class="current-question">Preparando preguntas...</div>
+                </div>
+                
+                <div class="answers-grid">
+                    <div class="answer-item" id="fastAnswer1">
+                        <div class="answer-text">---</div>
+                        <div class="answer-points">--</div>
+                    </div>
+                    <div class="answer-item" id="fastAnswer2">
+                        <div class="answer-text">---</div>
+                        <div class="answer-points">--</div>
+                    </div>
+                    <div class="answer-item" id="fastAnswer3">
+                        <div class="answer-text">---</div>
+                        <div class="answer-points">--</div>
+                    </div>
+                    <div class="answer-item" id="fastAnswer4">
+                        <div class="answer-text">---</div>
+                        <div class="answer-points">--</div>
+                    </div>
+                    <div class="answer-item" id="fastAnswer5">
+                        <div class="answer-text">---</div>
+                        <div class="answer-points">--</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="fast-money-status">
+                <div id="fastMoneyMessage" class="status-message">¡Listo para comenzar!</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -671,6 +905,31 @@ function handleIncoming(msg){
             }
         }
         renderStrikes();
+    } else if(msg.type === 'switch_fast_money'){
+        // Cambiar a modo Dinero Rápido
+        if(msg.payload && msg.payload.mode === 'start') {
+            showFastMoneyMode();
+        } else if(msg.payload && msg.payload.mode === 'exit') {
+            hideFastMoneyMode();
+        }
+    } else if(msg.type === 'fast_money_question'){
+        // Manejar preguntas de Fast Money
+        if(msg.payload) {
+            updateFastMoneyQuestion(msg.payload.question, msg.payload.index);
+        }
+    } else if(msg.type === 'fast_money_reveal'){
+        // Manejar revelado de respuestas
+        if(msg.payload) {
+            revealFastMoneyAnswer(msg.payload.answerIndex, msg.payload.answer, msg.payload.points, msg.payload.totalScore);
+        }
+    } else if(msg.type === 'fast_money_reset'){
+        // Manejar reset de Fast Money
+        resetFastMoneyBoard();
+    } else if(msg.type === 'fast_money_finish'){
+        // Manejar finalización de Fast Money
+        if(msg.payload) {
+            finishFastMoneyBoard(msg.payload.success, msg.payload.finalScore);
+        }
     } else if(msg.type === 'round_points'){
         // controller started a round; store points & teams and update display
         playBootSound(); // 🚀 Terminal boot sound for round start
@@ -1268,6 +1527,88 @@ function createHighScoreParticles(element, score) {
     }, 2500);
 }
 
+// ===== FAST MONEY MODE FUNCTIONS =====
+
+function showFastMoneyMode() {
+    const overlay = document.getElementById('fastMoneyOverlay');
+    if(!overlay) return;
+    
+    // Show overlay
+    overlay.style.display = 'flex';
+    
+    // Initialize Fast Money data
+    initializeFastMoney();
+    
+    // Terminal message
+    showTerminalMessage('fast-money --mode=active --status=ready 💰');
+    
+    // Sound effect
+    playFastMoneySound();
+}
+
+function hideFastMoneyMode() {
+    const overlay = document.getElementById('fastMoneyOverlay');
+    if(overlay) {
+        overlay.style.display = 'none';
+    }
+    
+    showTerminalMessage('fast-money --mode=exit --status=complete 🚪');
+}
+
+function initializeFastMoney() {
+    // Reset score
+    document.getElementById('fastMoneyScore').textContent = '0';
+    
+    // Sample questions (you can customize these)
+    const fastMoneyQuestions = [
+        { question: "Nombra un lenguaje de programación popular", answers: ["JavaScript", "Python", "Java", "C++", "C#"], points: [38, 25, 18, 12, 7] },
+        { question: "Nombra un navegador web", answers: ["Chrome", "Firefox", "Safari", "Edge", "Opera"], points: [45, 22, 15, 12, 6] },
+        { question: "Nombra una red social", answers: ["Facebook", "Instagram", "Twitter", "TikTok", "LinkedIn"], points: [35, 28, 20, 10, 7] },
+        { question: "Nombra un sistema operativo", answers: ["Windows", "macOS", "Linux", "Android", "iOS"], points: [40, 25, 15, 12, 8] },
+        { question: "Nombra una empresa de tecnología", answers: ["Google", "Apple", "Microsoft", "Amazon", "Meta"], points: [32, 28, 22, 10, 8] }
+    ];
+    
+    // Set current question
+    document.getElementById('fastMoneyQuestion').textContent = fastMoneyQuestions[0].question;
+    
+    // Reset answer display
+    for(let i = 1; i <= 5; i++) {
+        const answerEl = document.getElementById(`fastAnswer${i}`);
+        if(answerEl) {
+            answerEl.classList.remove('revealed');
+            const textEl = answerEl.querySelector('.answer-text');
+            const pointsEl = answerEl.querySelector('.answer-points');
+            if(textEl) textEl.textContent = '---';
+            if(pointsEl) pointsEl.textContent = '--';
+        }
+    }
+    
+    document.getElementById('fastMoneyMessage').textContent = '¡Listo para comenzar!';
+}
+
+function playFastMoneySound() {
+    try {
+        // Sonido especial para Dinero Rápido
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+        oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+        oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+    } catch(error) {
+        console.warn('Audio context error:', error);
+    }
+}
+
 // ===== WINNER CELEBRATION FUNCTIONS =====
 function playVictorySound() {
     try {
@@ -1414,6 +1755,11 @@ function checkGameEnd(roundNumber) {
             // Mostrar celebración después del delay apropiado
             setTimeout(() => {
                 showWinnerCelebration(winnerTeam, winnerScore);
+                
+                // 💰 Notificar al controller para desbloquear Dinero Rápido
+                setTimeout(() => {
+                    sendMessage({type: 'unlock_fast_money', payload: {winner: winnerTeam, ready: true}});
+                }, 3000);
             }, celebrationDelay);
             
             return true; // Juego terminado
@@ -1421,6 +1767,152 @@ function checkGameEnd(roundNumber) {
     }
     return false; // Juego continúa
 }
+
+// Fast Money exit button event listener
+document.getElementById('fastMoneyExit')?.addEventListener('click', hideFastMoneyMode);
+
+// ===== FUNCIONES PARA CONTROLADOR DE DINERO RÁPIDO =====
+
+function updateFastMoneyQuestion(questionText, questionIndex) {
+    const questionElement = document.querySelector('.fast-money-question');
+    if(questionElement) {
+        questionElement.textContent = questionText;
+    }
+    
+    // Reset answers for new question
+    for(let i = 1; i <= 5; i++) {
+        const answerEl = document.getElementById(`fmAnswer${i}`);
+        const pointsEl = document.getElementById(`fmPoints${i}`);
+        if(answerEl) answerEl.textContent = '';
+        if(pointsEl) pointsEl.textContent = '';
+        
+        const container = document.querySelector(`[data-fm-answer="${i-1}"]`);
+        if(container) {
+            container.classList.remove('revealed');
+            container.style.display = 'none';
+        }
+    }
+    
+    console.log(`🎯 Pregunta ${questionIndex + 1} actualizada:`, questionText);
+}
+
+function revealFastMoneyAnswer(answerIndex, answer, points, totalScore) {
+    const answerNum = answerIndex + 1;
+    const answerEl = document.getElementById(`fmAnswer${answerNum}`);
+    const pointsEl = document.getElementById(`fmPoints${answerNum}`);
+    const container = document.querySelector(`[data-fm-answer="${answerIndex}"]`);
+    
+    if(answerEl) answerEl.textContent = answer;
+    if(pointsEl) pointsEl.textContent = points;
+    if(container) {
+        container.style.display = 'flex';
+        container.classList.add('revealed');
+        
+        // Animación de aparición
+        container.style.transform = 'translateX(-50px)';
+        container.style.opacity = '0';
+        
+        setTimeout(() => {
+            container.style.transition = 'all 0.5s ease';
+            container.style.transform = 'translateX(0)';
+            container.style.opacity = '1';
+        }, 100);
+    }
+    
+    // Actualizar score
+    const scoreEl = document.querySelector('.fast-money-score');
+    if(scoreEl) {
+        scoreEl.textContent = `${totalScore}/200 PUNTOS`;
+        
+        // Efecto de puntos
+        if(points > 0) {
+            const pointsEffect = document.createElement('div');
+            pointsEffect.textContent = `+${points}`;
+            pointsEffect.style.cssText = `
+                position: absolute;
+                color: #f59e0b;
+                font-size: 24px;
+                font-weight: bold;
+                animation: pointsEffect 2s ease-out;
+                z-index: 1000;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
+            `;
+            
+            document.body.appendChild(pointsEffect);
+            
+            setTimeout(() => pointsEffect.remove(), 2000);
+        }
+    }
+    
+    console.log(`✅ Respuesta revelada: ${answer} (${points} pts) - Total: ${totalScore}`);
+}
+
+function resetFastMoneyBoard() {
+    // Reset question
+    const questionEl = document.querySelector('.fast-money-question');
+    if(questionEl) questionEl.textContent = 'Selecciona una pregunta desde el controlador';
+    
+    // Reset answers and score
+    for(let i = 1; i <= 5; i++) {
+        const answerEl = document.getElementById(`fmAnswer${i}`);
+        const pointsEl = document.getElementById(`fmPoints${i}`);
+        if(answerEl) answerEl.textContent = '';
+        if(pointsEl) pointsEl.textContent = '';
+        
+        const container = document.querySelector(`[data-fm-answer="${i-1}"]`);
+        if(container) {
+            container.classList.remove('revealed');
+            container.style.display = 'none';
+        }
+    }
+    
+    const scoreEl = document.querySelector('.fast-money-score');
+    if(scoreEl) scoreEl.textContent = '0/200 PUNTOS';
+    
+    console.log('🔄 Dinero Rápido reiniciado');
+}
+
+function finishFastMoneyBoard(success, finalScore) {
+    const overlay = document.getElementById('fastMoneyOverlay');
+    if(!overlay) return;
+    
+    // Crear mensaje de finalización
+    const finishMessage = document.createElement('div');
+    finishMessage.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: ${success ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #ef4444, #dc2626)'};
+        color: white;
+        padding: 40px 60px;
+        border-radius: 20px;
+        font-size: 36px;
+        font-weight: bold;
+        text-align: center;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: finishPulse 2s ease-in-out;
+    `;
+    
+    finishMessage.innerHTML = success 
+        ? `🏆🏆🏆<br>¡¡¡FELICIDADES!!!<br>DINERO RÁPIDO COMPLETADO<br>${finalScore} PUNTOS` 
+        : `😢 DINERO RÁPIDO TERMINADO<br>${finalScore}/200 PUNTOS<br>¡Mejor suerte la próxima vez!`;
+    
+    overlay.appendChild(finishMessage);
+    
+    // Remover mensaje después de 5 segundos
+    setTimeout(() => {
+        if(finishMessage.parentNode) {
+            finishMessage.remove();
+        }
+    }, 5000);
+    
+    console.log(`🏆 Dinero Rápido finalizado - Éxito: ${success}, Puntos: ${finalScore}`);
+}
+
 </script>
 
 </body>
