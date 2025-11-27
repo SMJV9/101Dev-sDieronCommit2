@@ -83,7 +83,7 @@
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
             <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;padding:5px 8px;background:rgba(102,252,241,0.1);border-radius:4px;font-size:13px;">📚 Banco de Preguntas</a>
-                <button id="fastMoneyBtn" style="margin-left:6px;background:linear-gradient(90deg,#f59e0b,#d97706);color:#ffffff;opacity:1;cursor:pointer">💰 DINERO RÁPIDO</button>
+                <button id="fastMoneyBtn" disabled style="margin-left:6px;background:#6b7280;color:#9ca3af;opacity:0.6;cursor:not-allowed">💰 DINERO RÁPIDO</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
             <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
@@ -949,6 +949,12 @@ function runRound(teamNames, keepScores){
         // Update round number display
         const roundNumEl = document.getElementById('roundNumber');
         if(roundNumEl) roundNumEl.textContent = `Ronda: ${roundNumber}`;
+        
+        // Enable Fast Money after completing round 3 (when starting round 4)
+        if(roundNumber >= 4) {
+            unlockFastMoney();
+            showTerminalMessage(`fast-money --unlocked --round=${roundNumber} 🏆`);
+        }
         
         // 🔒 Activar bloqueo de equipos - ronda en curso
         isRoundActive = true;
@@ -2550,8 +2556,28 @@ updateStrikeDisplay();
 
 // persist & render helpers for controller
 function persistTeamScores(){ try{ localStorage.setItem('game-team-scores', JSON.stringify(teamScores)); }catch(e){} }
+// Function to check for winners after score updates
+function checkForWinner() {
+    // Fast Money is now available immediately when there are teams with scores
+    // The winner will be determined by who has the most points when Fast Money is triggered
+    const teamCount = Object.keys(teamScores).length;
+    const hasScores = Object.values(teamScores).some(score => score > 0);
+    
+    if (teamCount >= 2 && hasScores) {
+        // Enable Fast Money when there are teams and at least one has points
+        const fastMoneyBtn = document.getElementById('fastMoneyBtn');
+        if (fastMoneyBtn && fastMoneyBtn.disabled) {
+            unlockFastMoney();
+            showTerminalMessage(`fast-money --available --teams=${teamCount} 🎯`);
+        }
+    }
+}
+
 function renderTeamScores(){ const el = document.getElementById('teamScoresDisplay'); if(!el) return; el.innerHTML = '';
-    Object.keys(teamScores).forEach(name=>{ const d = document.createElement('div'); d.style.padding='8px'; d.style.border='1px solid #e2e8f0'; d.style.borderRadius='6px'; d.style.minWidth='120px'; d.innerHTML = `<div style='font-size:12px;color:#475569'>${escapeHtml(name)}</div><div style='font-weight:800;font-size:18px'>${String(teamScores[name]||0).padStart(3,'0')}</div>`; el.appendChild(d); }); }
+    Object.keys(teamScores).forEach(name=>{ const d = document.createElement('div'); d.style.padding='8px'; d.style.border='1px solid #e2e8f0'; d.style.borderRadius='6px'; d.style.minWidth='120px'; d.innerHTML = `<div style='font-size:12px;color:#475569'>${escapeHtml(name)}</div><div style='font-weight:800;font-size:18px'>${String(teamScores[name]||0).padStart(3,'0')}</div>`; el.appendChild(d); }); 
+    // Check for winner after rendering scores
+    checkForWinner();
+}
 
 // When a team reaches 3 strikes, show steal attempt UI
 function handleThreeStrikesSteal(){
