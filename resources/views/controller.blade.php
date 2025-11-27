@@ -11,6 +11,17 @@
             0%, 50% { opacity: 1; }
             51%, 100% { opacity: 0; }
         }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        .blocked-answer {
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-left: 3px solid #ef4444;
+        }
     </style>
 </head>
 <body>
@@ -72,7 +83,7 @@
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
             <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;padding:5px 8px;background:rgba(102,252,241,0.1);border-radius:4px;font-size:13px;">📚 Banco de Preguntas</a>
-                <button id="fastMoneyBtn" style="margin-left:6px;background:linear-gradient(90deg,#f59e0b,#d97706);color:#ffffff;opacity:0.5;cursor:not-allowed" disabled>💰 DINERO RÁPIDO</button>
+                <button id="fastMoneyBtn" style="margin-left:6px;background:linear-gradient(90deg,#f59e0b,#d97706);color:#ffffff;opacity:1;cursor:pointer">💰 DINERO RÁPIDO</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
             <span id="roundNumber" style="margin-left:10px;font-size:14px;font-weight:bold;color:var(--accent)">Ronda: 1</span>
@@ -166,8 +177,17 @@ function unlockFastMoney() {
 
 // fallback send/receive via localStorage
 function sendMessage(msg){
-    if (usingBroadcast && channel) return channel.postMessage(msg);
-    try{ localStorage.setItem('game-100mx', JSON.stringify({msg, ts:Date.now()})); }catch(e){console.debug('[controller] localStorage send failed', e)}
+    console.log('📤 [controller] Enviando mensaje:', msg);
+    if (usingBroadcast && channel) {
+        console.log('📡 Enviando via BroadcastChannel');
+        return channel.postMessage(msg);
+    }
+    try{ 
+        console.log('💾 Enviando via localStorage');
+        localStorage.setItem('game-100mx', JSON.stringify({msg, ts:Date.now()})); 
+    }catch(e){
+        console.error('[controller] localStorage send failed', e)
+    }
 }
 
 function addStorageListener(fn){
@@ -1511,6 +1531,12 @@ function handleIncoming(msg){
 let currentFastMoneyData = null;
 let currentQuestionIndex = 0;
 let fastMoneyScore = 0;
+let currentParticipant = 1; // 1 o 2
+let blockedAnswers = {}; // {questionIndex: [answerIndexes]}
+let participantAnswers = {
+    participant1: [], // Respuestas del participante 1
+    participant2: []  // Respuestas del participante 2
+};
 let fastMoneySession = {
     questions: [], // {question: string, selectedAnswer: string, points: number}
     totalScore: 0
@@ -1545,6 +1571,10 @@ const fastMoneyQuestions = [
 ];
 
 function showFastMoneyController() {
+    console.log('🎮 Iniciando controlador de dinero rápido');
+    console.log('📊 Preguntas disponibles:', fastMoneyQuestions?.length || 0);
+    console.log('📋 Preguntas:', fastMoneyQuestions);
+    
     const controller = document.getElementById('fastMoneyController');
     if(!controller) return;
     
@@ -1562,6 +1592,9 @@ function showFastMoneyController() {
     setTimeout(() => {
         controller.style.display = 'flex';
         
+        // 🎭 Enviar animación de telón SIEMPRE
+        sendMessage({type: 'fast_money_curtain', payload: {}});
+        
         // Enviar mensaje al tablero para cambiar a modo Dinero Rápido
         sendMessage({type: 'switch_fast_money', payload: {mode: 'start'}});
         
@@ -1576,6 +1609,9 @@ function showFastMoneyController() {
         
         showTerminalMessage('fast-money --controller=active --status=ready 💰');
     }, 2000);
+    
+    // 🔧 Configurar event listeners inmediatamente
+    setupFastMoneyEventListeners();
 }
 
 function hideFastMoneyController() {
@@ -1590,10 +1626,105 @@ function hideFastMoneyController() {
     showTerminalMessage('fast-money --controller=closed --status=inactive 🚪');
 }
 
+// 🔧 Configurar event listeners del dinero rápido
+function setupFastMoneyEventListeners() {
+    console.log('🔧 Configurando event listeners del dinero rápido...');
+    
+    // Cargar pregunta
+    const loadBtn = document.getElementById('loadQuestion');
+    console.log('📤 Botón cargar pregunta encontrado:', loadBtn);
+    if(loadBtn) {
+        loadBtn.removeEventListener('click', loadFastMoneyQuestion); // Evitar duplicados
+        loadBtn.addEventListener('click', loadFastMoneyQuestion);
+        console.log('✅ Event listener de cargar pregunta configurado');
+    } else {
+        console.error('❌ Botón loadQuestion no encontrado');
+    }
+    
+    // Botones de revelar (1-5)
+    for(let i = 1; i <= 5; i++) {
+        const revealBtn = document.getElementById(`reveal${i}`);
+        console.log(`🎯 Botón reveal${i} encontrado:`, revealBtn);
+        if(revealBtn) {
+            // Crear función específica para este botón para evitar problemas de closure
+            const revealFunction = function() {
+                revealFastMoneyAnswer(i - 1);
+            };
+            
+            // Remover cualquier listener previo usando la referencia almacenada
+            if(revealBtn.fastMoneyListener) {
+                revealBtn.removeEventListener('click', revealBtn.fastMoneyListener);
+            }
+            
+            // Agregar nuevo listener y guardar referencia
+            revealBtn.fastMoneyListener = revealFunction;
+            revealBtn.addEventListener('click', revealFunction);
+            console.log(`✅ Event listener reveal${i} configurado`);
+        } else {
+            console.error(`❌ Botón reveal${i} no encontrado`);
+        }
+    }
+    
+    // Botones de acción
+    const nextBtn = document.getElementById('nextQuestionBtn');
+    const duplicateBtn = document.getElementById('duplicateAnswerBtn');
+    const revealPointsBtn = document.getElementById('revealPointsBtn');
+    const resetBtn = document.getElementById('resetFastMoney');
+    const finishBtn = document.getElementById('finishFastMoney');
+    const exitBtn = document.getElementById('fastControlExit');
+    
+    if(nextBtn) {
+        nextBtn.removeEventListener('click', nextFastMoneyQuestion);
+        nextBtn.addEventListener('click', nextFastMoneyQuestion);
+    }
+    if(duplicateBtn) {
+        duplicateBtn.removeEventListener('click', playDuplicateAnswerSound);
+        duplicateBtn.addEventListener('click', playDuplicateAnswerSound);
+    }
+    if(revealPointsBtn) {
+        revealPointsBtn.removeEventListener('click', revealFastMoneyPoints);
+        revealPointsBtn.addEventListener('click', revealFastMoneyPoints);
+    }
+    if(resetBtn) {
+        resetBtn.removeEventListener('click', resetFastMoney);
+        resetBtn.addEventListener('click', resetFastMoney);
+    }
+    if(finishBtn) {
+        finishBtn.removeEventListener('click', finishFastMoney);
+        finishBtn.addEventListener('click', finishFastMoney);
+    }
+    if(exitBtn) {
+        exitBtn.removeEventListener('click', hideFastMoneyController);
+        exitBtn.addEventListener('click', hideFastMoneyController);
+    }
+    
+    // Event listener para el target dinámico
+    const targetInput = document.getElementById('fastMoneyTarget');
+    if(targetInput) {
+        targetInput.addEventListener('input', function() {
+            const newTarget = this.value;
+            document.getElementById('fastControlTarget').textContent = newTarget;
+            // Enviar al tablero también
+            sendMessage({
+                type: 'fast_money_target_update',
+                payload: { target: newTarget }
+            });
+        });
+    }
+    
+    console.log('🔧 Event listeners del dinero rápido configurados');
+}
+
 function initializeFastMoneyController() {
     currentQuestionIndex = 0;
     fastMoneyScore = 0;
     currentFastMoneyData = null;
+    currentParticipant = 1;
+    blockedAnswers = {};
+    participantAnswers = {
+        participant1: [],
+        participant2: []
+    };
     
     // 🔄 Limpiar sesión de dinero rápido
     fastMoneySession = {
@@ -1603,8 +1734,11 @@ function initializeFastMoneyController() {
     
     // Reset UI
     document.getElementById('fastControlScore').textContent = '0';
-    document.getElementById('currentQuestionText').textContent = 'Selecciona una pregunta';
-    document.getElementById('fastControlStatus').textContent = '¡Listo para comenzar!';
+    // Actualizar target dinámico
+    const targetValue = document.getElementById('fastMoneyTarget').value;
+    document.getElementById('fastControlTarget').textContent = targetValue;
+    // No hay currentQuestionText en el HTML, se removió el título de pregunta
+    document.getElementById('fastControlStatus').textContent = '🎮 Participante 1 - ¡Listo para comenzar!';
     
     // Reset answers
     for(let i = 1; i <= 5; i++) {
@@ -1618,71 +1752,143 @@ function initializeFastMoneyController() {
 }
 
 function loadFastMoneyQuestion() {
+    console.log('🎯 loadFastMoneyQuestion ejecutado');
     const selectedIndex = document.getElementById('questionSelect').value;
     const question = fastMoneyQuestions[selectedIndex];
     
-    if(!question) return;
+    console.log('📝 Pregunta seleccionada:', question);
+    if(!question) {
+        console.error('❌ No se encontró la pregunta');
+        return;
+    }
     
     currentFastMoneyData = question;
     currentQuestionIndex = parseInt(selectedIndex);
     
-    // Update question display
-    document.getElementById('currentQuestionText').textContent = question.question;
+    // No actualizamos currentQuestionText porque se removió del HTML
     
-    // Load answers
+    // Load answers y manejar respuestas bloqueadas
+    const questionBlocked = blockedAnswers[currentQuestionIndex] || [];
+    
     for(let i = 0; i < 5; i++) {
-        document.getElementById(`answer${i + 1}`).value = question.answers[i] || '';
-        document.getElementById(`points${i + 1}`).textContent = question.points[i] || 0;
-        document.getElementById(`reveal${i + 1}`).disabled = false;
-        document.querySelector(`[data-answer="${i}"]`).classList.remove('revealed');
+        const answerInput = document.getElementById(`answer${i + 1}`);
+        const pointsSpan = document.getElementById(`points${i + 1}`);
+        const revealBtn = document.getElementById(`reveal${i + 1}`);
+        const container = document.querySelector(`[data-answer="${i}"]`);
+        
+        answerInput.value = question.answers[i] || '';
+        pointsSpan.textContent = question.points[i] || 0;
+        
+        // Verificar si esta respuesta está bloqueada
+        const isBlocked = questionBlocked.includes(i);
+        
+        if(isBlocked) {
+            // Respuesta bloqueada del participante anterior
+            revealBtn.disabled = true;
+            revealBtn.textContent = 'Bloqueada';
+            revealBtn.style.background = '#ef4444';
+            container.style.opacity = '0.6';
+            container.classList.add('blocked-answer');
+        } else {
+            // Respuesta disponible
+            revealBtn.disabled = false;
+            revealBtn.textContent = 'Revelar';
+            revealBtn.style.background = 'var(--accent2)';
+            container.style.opacity = '1';
+            container.classList.remove('blocked-answer', 'revealed');
+        }
     }
     
     // Send question to board
-    sendMessage({
+    const messageData = {
         type: 'fast_money_question',
         payload: {
             question: question.question,
             index: currentQuestionIndex
         }
-    });
+    };
+    console.log('📤 Enviando mensaje al tablero:', messageData);
+    sendMessage(messageData);
+    console.log('✅ Mensaje enviado correctamente');
     
     document.getElementById('fastControlStatus').textContent = `Pregunta ${currentQuestionIndex + 1} cargada - ¡Lista para revelar respuestas!`;
     document.getElementById('nextQuestionBtn').disabled = false;
 }
 
 function revealFastMoneyAnswer(answerIndex) {
-    if(!currentFastMoneyData) return;
+    console.log('🎯 revealFastMoneyAnswer ejecutado, índice:', answerIndex);
+    console.log('📊 currentFastMoneyData:', currentFastMoneyData);
+    
+    if(!currentFastMoneyData) {
+        console.error('❌ No hay datos de Fast Money cargados');
+        return;
+    }
+    
+    // Verificar si ya fue revelada para evitar doble puntuación
+    const answerContainer = document.querySelector(`[data-answer="${answerIndex}"]`);
+    if(answerContainer && answerContainer.classList.contains('revealed')) {
+        console.log('⚠️ Respuesta ya revelada, ignorando');
+        return;
+    }
     
     const answer = currentFastMoneyData.answers[answerIndex];
     const points = currentFastMoneyData.points[answerIndex];
     
-    if(!answer) return;
+    console.log('📝 Respuesta:', answer, 'Puntos:', points);
     
-    // 📝 Registrar respuesta seleccionada en la sesión
+    if(!answer) {
+        console.error('❌ No se encontró respuesta para el índice:', answerIndex);
+        return;
+    }
+    
+    // 📝 Registrar respuesta seleccionada y bloquearla para el siguiente participante
     const questionName = currentFastMoneyData.question || `Pregunta ${currentQuestionIndex + 1}`;
-    fastMoneySession.questions.push({
-        question: questionName,
-        selectedAnswer: answer,
+    const participantKey = `participant${currentParticipant}`;
+    
+    // Guardar respuesta del participante actual
+    participantAnswers[participantKey].push({
+        questionIndex: currentQuestionIndex,
+        answerIndex: answerIndex,
+        answer: answer,
         points: points
     });
     
+    // Bloquear esta respuesta para el siguiente participante
+    if(!blockedAnswers[currentQuestionIndex]) {
+        blockedAnswers[currentQuestionIndex] = [];
+    }
+    blockedAnswers[currentQuestionIndex].push(answerIndex);
+    
+    fastMoneySession.questions.push({
+        question: questionName,
+        selectedAnswer: answer,
+        points: points,
+        participant: currentParticipant
+    });
+    
     // Update local score
+    console.log('💰 Puntaje antes:', fastMoneyScore, '+ puntos:', points);
     fastMoneyScore += points;
+    console.log('💰 Puntaje después:', fastMoneyScore);
     fastMoneySession.totalScore = fastMoneyScore;
     document.getElementById('fastControlScore').textContent = fastMoneyScore;
     
-    // Mark as revealed
+    // Mark as revealed INMEDIATAMENTE para prevenir doble clic
     document.querySelector(`[data-answer="${answerIndex}"]`).classList.add('revealed');
     document.getElementById(`reveal${answerIndex + 1}`).disabled = true;
+    console.log(`🔒 Respuesta ${answerIndex + 1} marcada como revelada y botón deshabilitado`);
     
-    // Send to board
+    // Send to board SIN PUNTOS - solo mostrar respuesta
     sendMessage({
         type: 'fast_money_reveal',
         payload: {
             answerIndex: answerIndex,
             answer: answer,
-            points: points,
-            totalScore: fastMoneyScore
+            points: 0, // No mostrar puntos reales en el tablero
+            totalScore: 0, // No mostrar total en el tablero
+            hidePoints: true, // Bandera para indicar que se oculten los puntos
+            participant: currentParticipant, // Indicar qué participante está jugando
+            questionIndex: currentQuestionIndex // Indicar qué pregunta
         }
     });
     
@@ -1697,10 +1903,112 @@ function nextFastMoneyQuestion() {
         const nextIndex = currentQuestionIndex + 1;
         document.getElementById('questionSelect').value = nextIndex;
         loadFastMoneyQuestion();
+        
+        // Actualizar texto del botón si es la última pregunta
+        if(nextIndex === fastMoneyQuestions.length - 1) {
+            document.getElementById('nextQuestionBtn').textContent = '👥 Siguiente Participante';
+        }
     } else {
-        document.getElementById('fastControlStatus').textContent = '¡Última pregunta completada!';
-        document.getElementById('nextQuestionBtn').disabled = true;
+        // Cambiar de participante
+        switchToNextParticipant();
     }
+}
+
+function switchToNextParticipant() {
+    if(currentParticipant === 1) {
+        // 🔒 Asegurar que las respuestas del Participante 1 mantengan puntos ocultos
+        sendMessage({
+            type: 'hide_participant_points', 
+            payload: {
+                participant: 1
+            }
+        });
+        
+        // Cambiar al participante 2
+        currentParticipant = 2;
+        
+        // Resetear a la primera pregunta
+        currentQuestionIndex = 0;
+        document.getElementById('questionSelect').value = 0;
+        
+        // 🎭 Enviar animación de telón para el participante 2
+        sendMessage({type: 'fast_money_curtain', payload: {}});
+        
+        // Cambiar UI para participante 2
+        document.getElementById('fastControlStatus').textContent = '🎮 ¡Turno del Participante 2! Comenzando desde la pregunta 1...';
+        
+        // Cambiar botón
+        const nextBtn = document.getElementById('nextQuestionBtn');
+        nextBtn.textContent = '▶️ Siguiente';
+        nextBtn.disabled = true;
+        
+        // Mostrar mensaje
+        showTerminalMessage('fast-money --participant=2 --reset-questions --hide-p1-answers --status=ready 👥');
+        
+        // Cargar primera pregunta automáticamente
+        setTimeout(() => {
+            loadFastMoneyQuestion();
+        }, 1000);
+    } else {
+        // 🔒 Ocultar puntos del Participante 2 también al terminar
+        sendMessage({
+            type: 'hide_participant_points', 
+            payload: {
+                participant: 2
+            }
+        });
+        
+        // Ya terminaron ambos participantes
+        document.getElementById('fastControlStatus').textContent = '¡Ambos participantes completaron el Dinero Rápido! Presiona "Revelar Puntos" para mostrar resultados.';
+        document.getElementById('nextQuestionBtn').disabled = true;
+        document.getElementById('nextQuestionBtn').textContent = '✅ Completado';
+    }
+}
+
+function playDuplicateAnswerSound() {
+    // Crear efecto visual y sonoro para respuesta duplicada
+    document.getElementById('fastControlStatus').textContent = '🚫 ¡Respuesta ya mencionada por el participante anterior!';
+    
+    // Efecto visual de error
+    const controller = document.getElementById('fastMoneyController');
+    if(controller) {
+        controller.style.animation = 'shake 0.5s ease-in-out';
+        setTimeout(() => {
+            controller.style.animation = '';
+        }, 500);
+    }
+    
+    // Sonido de error (si existe la función)
+    if(typeof playErrorSound === 'function') {
+        playErrorSound();
+    }
+    
+    // Mensaje en terminal
+    showTerminalMessage('fast-money --duplicate-answer --sound=error --status=blocked 🚫');
+    
+    // Reset status después de 3 segundos
+    setTimeout(() => {
+        document.getElementById('fastControlStatus').textContent = `Participante ${currentParticipant} - Pregunta ${currentQuestionIndex + 1}`;
+    }, 3000);
+}
+
+function revealFastMoneyPoints() {
+    const targetInput = document.getElementById('fastMoneyTarget');
+    const currentTarget = targetInput ? parseInt(targetInput.value) || 200 : 200;
+    const success = fastMoneyScore >= currentTarget;
+    
+    // Enviar puntos totales al tablero
+    sendMessage({
+        type: 'fast_money_reveal_total',
+        payload: {
+            totalScore: fastMoneyScore,
+            target: currentTarget,
+            success: success
+        }
+    });
+    
+    showTerminalMessage(`fast-money --reveal-total=${fastMoneyScore}/${currentTarget} ${success ? '✅' : '❌'}`);
+    document.getElementById('fastControlStatus').textContent = `¡Puntos revelados! Total: ${fastMoneyScore}/${currentTarget}`;
 }
 
 function resetFastMoney() {
@@ -1716,9 +2024,25 @@ function finishFastMoney() {
     const currentTarget = targetInput ? parseInt(targetInput.value) || 200 : 200;
     
     const success = fastMoneyScore >= currentTarget;
+    
+    // Preguntar primero si quiere revelar los puntos
+    const revealPoints = confirm(`Jugador terminado con ${fastMoneyScore} puntos (meta: ${currentTarget})\n\n¿Revelar puntos totales en el tablero?`);
+    
+    if(revealPoints) {
+        // Enviar puntos totales al tablero
+        sendMessage({
+            type: 'fast_money_reveal_total',
+            payload: {
+                totalScore: fastMoneyScore,
+                target: currentTarget,
+                success: success
+            }
+        });
+    }
+    
     const message = success ? '¡¡¡FELICIDADES!!! ¡Dinero Rápido completado!' : 'Dinero Rápido terminado. ¡Mejor suerte la próxima vez!';
     
-    // Mostrar resultado y opciones
+    // Mostrar resultado y opciones para mostrar respuestas
     const showResults = confirm(message + '\n\n¿Deseas mostrar las respuestas seleccionadas en el tablero?');
     
     sendMessage({
@@ -2253,8 +2577,10 @@ if (document.readyState === 'loading') {
                 </div>
             </div>
             
-            <div style="display:flex;gap:10px;justify-content:center;">
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
                 <button id="nextQuestionBtn" disabled style="background:var(--accent);color:var(--bg);border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">▶️ Siguiente</button>
+                <button id="duplicateAnswerBtn" style="background:#ff6b35;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">🚫 Ya Mencionada</button>
+                <button id="revealPointsBtn" style="background:#f59e0b;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">💰 Revelar Puntos</button>
                 <button id="resetFastMoney" style="background:#ef4444;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">🔄 Reiniciar</button>
                 <button id="finishFastMoney" style="background:#10b981;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">🏆 Finalizar</button>
             </div>

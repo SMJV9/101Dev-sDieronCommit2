@@ -227,8 +227,8 @@
         
         .fast-money-container {
             position: relative;
-            width: 90%;
-            max-width: 800px;
+            width: 95%;
+            max-width: 1200px;
             background: rgba(11, 12, 16, 0.95);
             border-radius: 16px;
             border: 2px solid #f59e0b;
@@ -279,89 +279,152 @@
         }
         
         .fast-money-content {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 30px;
-            align-items: start;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
         }
         
+        /* Puntuación total centrada */
         .fast-money-score {
             text-align: center;
             background: rgba(102, 252, 241, 0.1);
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             border: 2px solid #66fcf1;
         }
         
-        .score-label {
-            font-size: 14px;
-            color: #66fcf1;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        
-        .score-value {
-            font-size: 48px;
+        .total-score-display {
+            font-size: 36px;
             font-weight: 900;
             color: #f59e0b;
             text-shadow: 0 0 15px rgba(245, 158, 11, 0.5);
         }
         
-        .fast-money-questions {
+        /* Contenedor de dos participantes */
+        .participants-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        .participant-column {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 12px;
             padding: 20px;
+            border: 2px solid rgba(102, 252, 241, 0.3);
         }
         
-        .current-question {
-            font-size: 24px;
+        .participant-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(102, 252, 241, 0.3);
+        }
+        
+        .participant-header h3 {
+            font-size: 20px;
             font-weight: bold;
             color: #66fcf1;
-            text-align: center;
-            margin-bottom: 30px;
-            min-height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            margin: 0 0 8px 0;
         }
         
-        .answers-grid {
-            display: grid;
-            gap: 12px;
+        .participant-score {
+            font-size: 16px;
+            font-weight: bold;
+            color: #f59e0b;
         }
         
-        .answer-item {
+        .participant-answers {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .answer-row {
+            display: flex;
             align-items: center;
-            padding: 15px 20px;
+            gap: 15px;
+            padding: 12px;
             background: rgba(102, 252, 241, 0.05);
             border: 1px solid rgba(102, 252, 241, 0.2);
             border-radius: 8px;
             transition: all 0.3s ease;
+            min-height: 50px;
         }
         
-        .answer-item.revealed {
+        .answer-row.revealed {
             background: rgba(245, 158, 11, 0.1);
             border-color: #f59e0b;
             box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
         }
         
-        .answer-text {
+        .answer-number {
             font-size: 18px;
             font-weight: bold;
+            color: #66fcf1;
+            min-width: 25px;
+        }
+        
+        .answer-content {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .answer-text {
+            font-size: 16px;
+            font-weight: bold;
             color: #c5c6c7;
+            flex: 1;
         }
         
         .answer-points {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 900;
             color: #f59e0b;
             background: rgba(245, 158, 11, 0.1);
-            padding: 5px 12px;
+            padding: 4px 10px;
             border-radius: 6px;
             min-width: 50px;
             text-align: center;
+        }
+        
+        /* Estados especiales */
+        .answer-row.blocked {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: #ef4444;
+            opacity: 0.6;
+        }
+        
+        .answer-row.hidden {
+            opacity: 0.3;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .participants-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .fast-money-container {
+                width: 98%;
+                padding: 20px;
+            }
+            
+            .participant-header h3 {
+                font-size: 18px;
+            }
+            
+            .answer-text {
+                font-size: 14px;
+            }
+            
+            .answer-points {
+                font-size: 16px;
+                padding: 3px 8px;
+            }
         }
         
         .status-message {
@@ -434,6 +497,21 @@
             }
             100% { 
                 transform: translate(calc(var(--random-x) * 2), calc(var(--random-y) * 2)) scale(0); 
+                opacity: 0; 
+            }
+        }
+        
+        @keyframes totalReveal {
+            0% { 
+                transform: translate(-50%, -50%) scale(0); 
+                opacity: 0; 
+            }
+            20% { 
+                transform: translate(-50%, -50%) scale(1.2); 
+                opacity: 1; 
+            }
+            100% { 
+                transform: translate(-50%, -50%) scale(1); 
                 opacity: 0; 
             }
         }
@@ -584,36 +662,100 @@
         </div>
         
         <div class="fast-money-content">
+            <!-- Puntuación total centrada -->
             <div class="fast-money-score">
-                <div class="score-label">PUNTOS TOTALES</div>
-                <div id="fastMoneyScore" class="score-value">0</div>
+                <div id="fastMoneyTotalScore" class="total-score-display">187/200 PUNTOS</div>
             </div>
             
-            <div class="fast-money-questions">
-                <div class="question-display" style="display: none;">
-                    <div id="fastMoneyQuestion" class="current-question">Preparando preguntas...</div>
+            <!-- Dos columnas para participantes -->
+            <div class="participants-container">
+                <!-- Participante 1 -->
+                <div class="participant-column">
+                    <div class="participant-header">
+                        <h3>🎮 PARTICIPANTE 1</h3>
+                        <div class="participant-score">Score: <span id="participant1Score">0</span></div>
+                    </div>
+                    <div class="participant-answers">
+                        <div class="answer-row" data-fm-answer="0" data-participant="1">
+                            <div class="answer-number">1.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer1P1" class="answer-text">---</div>
+                                <div id="fmPoints1P1" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="1" data-participant="1">
+                            <div class="answer-number">2.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer2P1" class="answer-text">---</div>
+                                <div id="fmPoints2P1" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="2" data-participant="1">
+                            <div class="answer-number">3.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer3P1" class="answer-text">---</div>
+                                <div id="fmPoints3P1" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="3" data-participant="1">
+                            <div class="answer-number">4.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer4P1" class="answer-text">---</div>
+                                <div id="fmPoints4P1" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="4" data-participant="1">
+                            <div class="answer-number">5.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer5P1" class="answer-text">---</div>
+                                <div id="fmPoints5P1" class="answer-points">--</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="answers-grid">
-                    <div class="answer-item" id="fastAnswer1">
-                        <div class="answer-text">---</div>
-                        <div class="answer-points">--</div>
+                <!-- Participante 2 -->
+                <div class="participant-column">
+                    <div class="participant-header">
+                        <h3>🎮 PARTICIPANTE 2</h3>
+                        <div class="participant-score">Score: <span id="participant2Score">0</span></div>
                     </div>
-                    <div class="answer-item" id="fastAnswer2">
-                        <div class="answer-text">---</div>
-                        <div class="answer-points">--</div>
-                    </div>
-                    <div class="answer-item" id="fastAnswer3">
-                        <div class="answer-text">---</div>
-                        <div class="answer-points">--</div>
-                    </div>
-                    <div class="answer-item" id="fastAnswer4">
-                        <div class="answer-text">---</div>
-                        <div class="answer-points">--</div>
-                    </div>
-                    <div class="answer-item" id="fastAnswer5">
-                        <div class="answer-text">---</div>
-                        <div class="answer-points">--</div>
+                    <div class="participant-answers">
+                        <div class="answer-row" data-fm-answer="0" data-participant="2">
+                            <div class="answer-number">1.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer1P2" class="answer-text">---</div>
+                                <div id="fmPoints1P2" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="1" data-participant="2">
+                            <div class="answer-number">2.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer2P2" class="answer-text">---</div>
+                                <div id="fmPoints2P2" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="2" data-participant="2">
+                            <div class="answer-number">3.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer3P2" class="answer-text">---</div>
+                                <div id="fmPoints3P2" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="3" data-participant="2">
+                            <div class="answer-number">4.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer4P2" class="answer-text">---</div>
+                                <div id="fmPoints4P2" class="answer-points">--</div>
+                            </div>
+                        </div>
+                        <div class="answer-row" data-fm-answer="4" data-participant="2">
+                            <div class="answer-number">5.</div>
+                            <div class="answer-content">
+                                <div id="fmAnswer5P2" class="answer-text">---</div>
+                                <div id="fmPoints5P2" class="answer-points">--</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -918,14 +1060,33 @@ function handleIncoming(msg){
             hideFastMoneyMode();
         }
     } else if(msg.type === 'fast_money_question'){
+        console.log('📨 Tablero recibió fast_money_question:', msg);
         // Manejar preguntas de Fast Money
         if(msg.payload) {
             updateFastMoneyQuestion(msg.payload.question, msg.payload.index);
+        } else {
+            console.error('❌ Mensaje fast_money_question sin payload');
         }
     } else if(msg.type === 'fast_money_reveal'){
         // Manejar revelado de respuestas
         if(msg.payload) {
-            revealFastMoneyAnswer(msg.payload.answerIndex, msg.payload.answer, msg.payload.points, msg.payload.totalScore);
+            const hidePoints = msg.payload.hidePoints || false;
+            const participant = msg.payload.participant || 1;
+            const questionIndex = msg.payload.questionIndex || 0;
+            revealFastMoneyAnswer(msg.payload.answerIndex, msg.payload.answer, msg.payload.points, msg.payload.totalScore, hidePoints, participant, questionIndex);
+        }
+    } else if(msg.type === 'fast_money_reveal_total'){
+        // 💰 Revelar puntos totales al final
+        if(msg.payload) {
+            revealFastMoneyTotal(msg.payload.totalScore, msg.payload.target, msg.payload.success);
+        }
+    } else if(msg.type === 'fast_money_curtain'){
+        // 🎭 Mostrar animación de telón
+        showCurtainAnimation();
+    } else if(msg.type === 'hide_participant_points'){
+        // 🔒 Ocultar puntos del participante anterior
+        if(msg.payload && msg.payload.participant) {
+            hideParticipantPoints(msg.payload.participant);
         }
     } else if(msg.type === 'fast_money_target_update'){
         // 🎯 Actualizar meta del dinero rápido
@@ -1831,55 +1992,70 @@ document.getElementById('fastMoneyExit')?.addEventListener('click', hideFastMone
 // ===== FUNCIONES PARA CONTROLADOR DE DINERO RÁPIDO =====
 
 function updateFastMoneyQuestion(questionText, questionIndex) {
+    console.log('🎯 updateFastMoneyQuestion ejecutado en tablero');
+    console.log('📝 Pregunta:', questionText, 'Índice:', questionIndex);
+    
     // Título de pregunta ocultado - solo resetear respuestas
     // const questionElement = document.querySelector('.fast-money-question');
     // if(questionElement) {
     //     questionElement.textContent = questionText;
     // }
     
-    // Reset answers for new question
-    for(let i = 1; i <= 5; i++) {
-        const answerEl = document.getElementById(`fmAnswer${i}`);
-        const pointsEl = document.getElementById(`fmPoints${i}`);
-        if(answerEl) answerEl.textContent = '';
-        if(pointsEl) pointsEl.textContent = '';
-        
-        const container = document.querySelector(`[data-fm-answer="${i-1}"]`);
-        if(container) {
-            container.classList.remove('revealed');
-            container.style.display = 'none';
-        }
-    }
+    // Reset answers for new question - NO HACER NADA
+    // Las respuestas deben mantenerse en el tablero
+    console.log('📌 No reseteando respuestas - deben mantenerse visibles en ambas columnas');
     
     console.log(`🎯 Pregunta ${questionIndex + 1} actualizada:`, questionText);
 }
 
-function revealFastMoneyAnswer(answerIndex, answer, points, totalScore) {
-    const answerNum = answerIndex + 1;
-    const answerEl = document.getElementById(`fmAnswer${answerNum}`);
-    const pointsEl = document.getElementById(`fmPoints${answerNum}`);
-    const container = document.querySelector(`[data-fm-answer="${answerIndex}"]`);
+function revealFastMoneyAnswer(answerIndex, answer, points, totalScore, hidePoints = false, participant = 1, questionIndex = 0) {
+    console.log(`🎯 Revelando respuesta: Participante ${participant}, Pregunta ${questionIndex + 1}, Respuesta ${answerIndex + 1}: ${answer}`);
     
-    if(answerEl) answerEl.textContent = answer;
-    if(pointsEl) pointsEl.textContent = points;
+    // Usar los nuevos IDs con participante
+    const participantSuffix = `P${participant}`;
+    const questionNum = questionIndex + 1; // Pregunta actual (1-5)
+    
+    const answerEl = document.getElementById(`fmAnswer${questionNum}${participantSuffix}`);
+    const pointsEl = document.getElementById(`fmPoints${questionNum}${participantSuffix}`);
+    const container = document.querySelector(`[data-fm-answer="${questionIndex}"][data-participant="${participant}"]`);
+    
+    if(answerEl) {
+        answerEl.textContent = answer;
+        console.log(`✅ Actualizado texto en: fmAnswer${questionNum}${participantSuffix}`);
+    } else {
+        console.error(`❌ No se encontró elemento: fmAnswer${questionNum}${participantSuffix}`);
+    }
+    
+    // Solo mostrar puntos si no están ocultos
+    if(pointsEl) {
+        pointsEl.textContent = hidePoints ? '???' : points;
+        console.log(`✅ Actualizado puntos en: fmPoints${questionNum}${participantSuffix} = ${hidePoints ? '???' : points}`);
+    } else {
+        console.error(`❌ No se encontró elemento: fmPoints${questionNum}${participantSuffix}`);
+    }
+    
     if(container) {
-        container.style.display = 'flex';
         container.classList.add('revealed');
         
         // Animación de aparición
-        container.style.transform = 'translateX(-50px)';
-        container.style.opacity = '0';
+        container.style.transform = 'translateX(-20px)';
+        container.style.opacity = '0.5';
         
         setTimeout(() => {
             container.style.transition = 'all 0.5s ease';
             container.style.transform = 'translateX(0)';
             container.style.opacity = '1';
         }, 100);
+        
+        console.log(`✅ Animación aplicada al contenedor de participante ${participant}, pregunta ${questionIndex + 1}`);
+    } else {
+        console.error(`❌ No se encontró contenedor: [data-fm-answer="${questionIndex}"][data-participant="${participant}"]`);
     }
     
-    // Actualizar score
-    const scoreEl = document.querySelector('.fast-money-score');
-    if(scoreEl) {
+    // NO actualizar score si los puntos están ocultos
+    if(!hidePoints) {
+        const scoreEl = document.querySelector('.fast-money-score');
+        if(scoreEl) {
         // Obtener la meta actual del elemento de meta
         const targetElement = document.querySelector('.fast-money-target');
         const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
@@ -1906,8 +2082,96 @@ function revealFastMoneyAnswer(answerIndex, answer, points, totalScore) {
             setTimeout(() => pointsEffect.remove(), 2000);
         }
     }
+    }
     
-    console.log(`✅ Respuesta revelada: ${answer} (${points} pts) - Total: ${totalScore}`);
+    // Actualizar score del participante (solo si no están ocultos)
+    if(!hidePoints && points > 0) {
+        updateParticipantScore(participant, points);
+    }
+    
+    console.log(`✅ Respuesta revelada: ${answer} (${hidePoints ? '??? pts' : points + ' pts'}) - Participante: ${participant}`);
+}
+
+// 📊 Función para actualizar score individual de participante
+function updateParticipantScore(participant, points) {
+    const scoreEl = document.getElementById(`participant${participant}Score`);
+    if(scoreEl) {
+        const currentScore = parseInt(scoreEl.textContent) || 0;
+        const newScore = currentScore + points;
+        scoreEl.textContent = newScore;
+        
+        // Efecto visual
+        scoreEl.style.animation = 'pulse 0.5s ease-in-out';
+        setTimeout(() => {
+            scoreEl.style.animation = '';
+        }, 500);
+        
+        console.log(`📊 Score Participante ${participant}: ${currentScore} + ${points} = ${newScore}`);
+    }
+}
+
+// 💰 Nueva función para revelar puntos totales
+function revealFastMoneyTotal(totalScore, target, success) {
+    console.log('💰 Revelando puntos totales:', totalScore, '/', target);
+    
+    // Actualizar todas las respuestas reveladas con efecto visual para ambos participantes
+    for(let participant = 1; participant <= 2; participant++) {
+        const revealedContainers = document.querySelectorAll(`[data-fm-answer][data-participant="${participant}"].revealed`);
+        revealedContainers.forEach((container) => {
+            const answerIndex = container.getAttribute('data-fm-answer');
+            const questionNum = parseInt(answerIndex) + 1;
+            const pointsEl = document.getElementById(`fmPoints${questionNum}P${participant}`);
+            
+            if(pointsEl && pointsEl.textContent === '???') {
+                // Efecto de revelado de puntos
+                pointsEl.style.background = '#f59e0b';
+                pointsEl.style.animation = 'pulse 0.5s ease-in-out 3';
+                setTimeout(() => {
+                    pointsEl.style.background = '';
+                    pointsEl.style.animation = '';
+                }, 1500);
+            }
+        });
+    }
+    
+    // Actualizar score total
+    const scoreEl = document.getElementById('fastMoneyTotalScore');
+    if(scoreEl) {
+        scoreEl.textContent = `${totalScore}/${target} PUNTOS`;
+        scoreEl.style.color = success ? '#10b981' : '#ef4444';
+        scoreEl.style.animation = 'pulse 1s ease-in-out 5';
+        
+        // Gran efecto visual
+        const totalEffect = document.createElement('div');
+        totalEffect.textContent = success ? `¡${totalScore} PUNTOS! ¡GANASTE!` : `${totalScore} PUNTOS - NO ALCANZÓ`;
+        totalEffect.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: ${success ? '#10b981' : '#ef4444'};
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 9999;
+            animation: totalReveal 3s ease-out;
+            pointer-events: none;
+        `;
+        
+        document.body.appendChild(totalEffect);
+        setTimeout(() => totalEffect.remove(), 3000);
+        
+        // Reset color después del efecto
+        setTimeout(() => {
+            scoreEl.style.color = '';
+            scoreEl.style.animation = '';
+        }, 5000);
+    }
+    
+    // Sonido de éxito o fracaso  
+    if(success) {
+        playSuccessSound();
+    }
 }
 
 function resetFastMoneyBoard() {
@@ -1915,26 +2179,34 @@ function resetFastMoneyBoard() {
     const questionEl = document.querySelector('.fast-money-question');
     if(questionEl) questionEl.textContent = 'Selecciona una pregunta desde el controlador';
     
-    // Reset answers and score
-    for(let i = 1; i <= 5; i++) {
-        const answerEl = document.getElementById(`fmAnswer${i}`);
-        const pointsEl = document.getElementById(`fmPoints${i}`);
-        if(answerEl) answerEl.textContent = '';
-        if(pointsEl) pointsEl.textContent = '';
+    // Reset answers para ambos participantes
+    for(let participant = 1; participant <= 2; participant++) {
+        for(let i = 1; i <= 5; i++) {
+            const answerEl = document.getElementById(`fmAnswer${i}P${participant}`);
+            const pointsEl = document.getElementById(`fmPoints${i}P${participant}`);
+            if(answerEl) answerEl.textContent = '---';
+            if(pointsEl) pointsEl.textContent = '--';
+            
+            const container = document.querySelector(`[data-fm-answer="${i-1}"][data-participant="${participant}"]`);
+            if(container) {
+                container.classList.remove('revealed');
+            }
+        }
         
-        const container = document.querySelector(`[data-fm-answer="${i-1}"]`);
-        if(container) {
-            container.classList.remove('revealed');
-            container.style.display = 'none';
+        // Reset score del participante
+        const participantScoreEl = document.getElementById(`participant${participant}Score`);
+        if(participantScoreEl) {
+            participantScoreEl.textContent = '0';
         }
     }
     
-    const scoreEl = document.querySelector('.fast-money-score');
-    if(scoreEl) {
+    // Reset score total
+    const totalScoreEl = document.getElementById('fastMoneyTotalScore');
+    if(totalScoreEl) {
         // Obtener la meta actual
         const targetElement = document.querySelector('.fast-money-target');
         const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
-        scoreEl.textContent = `0/${currentTarget} PUNTOS`;
+        totalScoreEl.textContent = `0/${currentTarget} PUNTOS`;
     }
     
     console.log('🔄 Dinero Rápido reiniciado');
@@ -2079,8 +2351,33 @@ function updateFastMoneyTargetDisplay(newTarget) {
     console.log(`🎯 Meta actualizada a ${newTarget} puntos`);
 }
 
+// 🔒 Ocultar respuestas y puntos del participante anterior
+function hideParticipantPoints(participant) {
+    console.log(`🔒 Ocultando respuestas y puntos del participante ${participant}`);
+    
+    // Ocultar tanto respuestas como puntos de las 5 preguntas del participante específico
+    for(let questionNum = 1; questionNum <= 5; questionNum++) {
+        // Ocultar puntos
+        const pointsEl = document.getElementById(`fmPoints${questionNum}P${participant}`);
+        if(pointsEl && pointsEl.textContent !== '---') {
+            pointsEl.textContent = '???';
+            pointsEl.style.color = '#6b7280'; // Color gris para indicar que está oculto
+            console.log(`🔒 Puntos ocultos en fmPoints${questionNum}P${participant}`);
+        }
+        
+        // Ocultar respuestas
+        const answerEl = document.getElementById(`fmAnswer${questionNum}P${participant}`);
+        if(answerEl && answerEl.textContent !== '---') {
+            answerEl.textContent = '???';
+            answerEl.style.color = '#6b7280'; // Color gris para indicar que está oculto
+            console.log(`🔒 Respuesta oculta en fmAnswer${questionNum}P${participant}`);
+        }
+    }
+    
+    console.log(`✅ Respuestas y puntos del participante ${participant} ocultados exitosamente`);
+}
+
 </script>
 
 </body>
 </html>
-    </html>
