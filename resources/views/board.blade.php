@@ -1098,6 +1098,11 @@ function handleIncoming(msg){
         if(msg.payload && msg.payload.target) {
             updateFastMoneyTargetDisplay(msg.payload.target);
         }
+    } else if(msg.type === 'update_participant_scores'){
+        // 📊 Actualizar scores individuales de participantes
+        if(msg.payload) {
+            updateIndividualParticipantScores(msg.payload.participant1Score, msg.payload.participant2Score);
+        }
     } else if(msg.type === 'fast_money_reset'){
         // Manejar reset de Fast Money
         resetFastMoneyBoard();
@@ -2448,6 +2453,53 @@ function revealAnswerStep(participant, questionIndex, answer, points, stepNumber
     }
     
     console.log(`✅ Paso ${stepNumber}/${totalSteps} revelado: ${answer} = ${points} pts`);
+}
+
+// 📊 Actualizar scores individuales de participantes
+function updateIndividualParticipantScores(participant1Score, participant2Score) {
+    console.log(`📊 Actualizando scores: P1=${participant1Score}, P2=${participant2Score}`);
+    
+    // Actualizar score del Participante 1
+    const p1ScoreElement = document.querySelector('.fast-money-overlay .participant-column:first-child .participant-score');
+    if(p1ScoreElement) {
+        // Efecto dramático
+        p1ScoreElement.style.transition = 'all 0.8s ease';
+        p1ScoreElement.style.transform = 'scale(1.2)';
+        p1ScoreElement.style.color = '#f59e0b';
+        
+        setTimeout(() => {
+            p1ScoreElement.textContent = `Score: ${participant1Score}`;
+            
+            // Restaurar estilo después del efecto
+            setTimeout(() => {
+                p1ScoreElement.style.transform = 'scale(1)';
+                p1ScoreElement.style.color = '#f59e0b';
+            }, 300);
+        }, 400);
+    }
+    
+    // Actualizar score del Participante 2
+    const p2ScoreElement = document.querySelector('.fast-money-overlay .participant-column:last-child .participant-score');
+    if(p2ScoreElement) {
+        // Efecto dramático con delay
+        setTimeout(() => {
+            p2ScoreElement.style.transition = 'all 0.8s ease';
+            p2ScoreElement.style.transform = 'scale(1.2)';
+            p2ScoreElement.style.color = '#f59e0b';
+            
+            setTimeout(() => {
+                p2ScoreElement.textContent = `Score: ${participant2Score}`;
+                
+                // Restaurar estilo después del efecto
+                setTimeout(() => {
+                    p2ScoreElement.style.transform = 'scale(1)';
+                    p2ScoreElement.style.color = '#f59e0b';
+                }, 300);
+            }, 400);
+        }, 800); // Delay para que se vea después del P1
+    }
+    
+    console.log(`✅ Scores actualizados: Participante 1 = ${participant1Score}, Participante 2 = ${participant2Score}`);
 }
 
 </script>

@@ -2116,8 +2116,33 @@ function revealNextAnswerAutomatic() {
         clearInterval(autoRevealInterval);
         autoRevealInterval = null;
         
+        // Calcular scores individuales de cada participante
+        let participant1Score = 0;
+        let participant2Score = 0;
+        
+        if(participantAnswers.participant1) {
+            for(let answer of participantAnswers.participant1) {
+                participant1Score += answer.points;
+            }
+        }
+        
+        if(participantAnswers.participant2) {
+            for(let answer of participantAnswers.participant2) {
+                participant2Score += answer.points;
+            }
+        }
+        
+        // Enviar scores individuales al tablero
+        sendMessage({
+            type: 'update_participant_scores',
+            payload: {
+                participant1Score: participant1Score,
+                participant2Score: participant2Score
+            }
+        });
+        
         // Actualizar UI final
-        document.getElementById('fastControlStatus').textContent = '🎊 ¡Todas las respuestas reveladas automáticamente! Presiona "Finalizar" para ver el total.';
+        document.getElementById('fastControlStatus').textContent = `🎊 ¡Revelado completo! P1: ${participant1Score} pts | P2: ${participant2Score} pts | Total: ${participant1Score + participant2Score}`;
         
         const revealBtn = document.getElementById('revealPointsBtn');
         if(revealBtn) {
@@ -2133,7 +2158,7 @@ function revealNextAnswerAutomatic() {
             finishBtn.textContent = '🏆 Ver Total Final';
         }
         
-        showTerminalMessage(`fast-money --auto-reveal=completed --ready-for-total 🎊`);
+        showTerminalMessage(`fast-money --auto-reveal=completed --p1=${participant1Score} --p2=${participant2Score} --total=${participant1Score + participant2Score} 🎊`);
         return;
     }
     
