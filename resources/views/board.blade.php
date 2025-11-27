@@ -515,6 +515,114 @@
                 opacity: 0; 
             }
         }
+        
+        /* 🎉 Animaciones de Victoria y Derrota */
+        .victory-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #10b981, #34d399, #fbbf24, #f59e0b);
+            background-size: 400% 400%;
+            animation: victoryBackground 3s ease-in-out infinite;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+        }
+        
+        .defeat-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #dc2626, #ef4444, #374151, #6b7280);
+            background-size: 400% 400%;
+            animation: defeatBackground 2s ease-in-out;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+        }
+        
+        .victory-content {
+            text-align: center;
+            color: white;
+            font-size: 4rem;
+            font-weight: bold;
+            text-shadow: 0 0 30px rgba(0,0,0,0.8);
+            animation: victoryText 3s ease-in-out;
+        }
+        
+        .defeat-content {
+            text-align: center;
+            color: white;
+            font-size: 3rem;
+            font-weight: bold;
+            text-shadow: 0 0 30px rgba(0,0,0,0.8);
+            animation: defeatText 2s ease-in-out;
+        }
+        
+        .confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: #fbbf24;
+            animation: confettiFall 3s linear infinite;
+        }
+        
+        .confetti:nth-child(2n) { background: #10b981; animation-delay: -0.5s; }
+        .confetti:nth-child(3n) { background: #ef4444; animation-delay: -1s; }
+        .confetti:nth-child(4n) { background: #3b82f6; animation-delay: -1.5s; }
+        .confetti:nth-child(5n) { background: #8b5cf6; animation-delay: -2s; }
+        
+        @keyframes victoryBackground {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes defeatBackground {
+            0% { background-position: 0% 50%; opacity: 0; }
+            50% { background-position: 100% 50%; opacity: 0.9; }
+            100% { background-position: 0% 50%; opacity: 0; }
+        }
+        
+        @keyframes victoryText {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            50% { transform: scale(1.2) rotate(0deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        @keyframes defeatText {
+            0% { transform: translateY(-100px); opacity: 0; }
+            50% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(0); opacity: 0.8; }
+        }
+        
+        @keyframes confettiFall {
+            0% { transform: translateY(-100vh) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(720deg); }
+        }
+        
+        .show-victory {
+            animation: showOverlay 4s ease-in-out forwards;
+        }
+        
+        .show-defeat {
+            animation: showOverlay 3s ease-in-out forwards;
+        }
+        
+        @keyframes showOverlay {
+            0% { opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -1102,6 +1210,16 @@ function handleIncoming(msg){
         // 📊 Actualizar scores individuales de participantes
         if(msg.payload) {
             updateIndividualParticipantScores(msg.payload.participant1Score, msg.payload.participant2Score);
+        }
+    } else if(msg.type === 'fast_money_victory_animation'){
+        // 🎉 Mostrar animación de victoria
+        if(msg.payload) {
+            showVictoryAnimation(msg.payload.totalScore, msg.payload.target, msg.payload.difference);
+        }
+    } else if(msg.type === 'fast_money_defeat_animation'){
+        // 😔 Mostrar animación de derrota
+        if(msg.payload) {
+            showDefeatAnimation(msg.payload.totalScore, msg.payload.target, msg.payload.difference);
         }
     } else if(msg.type === 'fast_money_reset'){
         // Manejar reset de Fast Money
@@ -2500,6 +2618,77 @@ function updateIndividualParticipantScores(participant1Score, participant2Score)
     }
     
     console.log(`✅ Scores actualizados: Participante 1 = ${participant1Score}, Participante 2 = ${participant2Score}`);
+}
+
+// 🎉 Mostrar animación de victoria
+function showVictoryAnimation(totalScore, target, difference) {
+    console.log(`🎉 Mostrando animación de VICTORIA: ${totalScore}/${target} (+${difference})`);
+    
+    // Crear overlay de victoria
+    const victoryOverlay = document.createElement('div');
+    victoryOverlay.className = 'victory-overlay show-victory';
+    
+    const victoryContent = document.createElement('div');
+    victoryContent.className = 'victory-content';
+    victoryContent.innerHTML = `
+        <div style="font-size: 5rem; margin-bottom: 20px;">🎉 ¡FELICIDADES! 🎉</div>
+        <div style="font-size: 3rem; margin-bottom: 10px;">¡DINERO RÁPIDO COMPLETADO!</div>
+        <div style="font-size: 2rem; color: #fbbf24;">${totalScore}/${target} PUNTOS</div>
+        <div style="font-size: 1.5rem; color: #34d399;">+${difference} puntos de ventaja</div>
+    `;
+    
+    victoryOverlay.appendChild(victoryContent);
+    
+    // Crear confetti
+    for(let i = 0; i < 50; i++) {
+        const confetti = document.createElement('div');
+        confetti.className = 'confetti';
+        confetti.style.left = Math.random() * 100 + '%';
+        confetti.style.animationDelay = Math.random() * 3 + 's';
+        confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+        victoryOverlay.appendChild(confetti);
+    }
+    
+    document.body.appendChild(victoryOverlay);
+    
+    // Remover después de la animación
+    setTimeout(() => {
+        if(victoryOverlay.parentNode) {
+            victoryOverlay.parentNode.removeChild(victoryOverlay);
+        }
+    }, 4000);
+    
+    console.log('🎊 Animación de victoria iniciada');
+}
+
+// 😔 Mostrar animación de derrota
+function showDefeatAnimation(totalScore, target, difference) {
+    console.log(`😔 Mostrando animación de DERROTA: ${totalScore}/${target} (-${difference})`);
+    
+    // Crear overlay de derrota
+    const defeatOverlay = document.createElement('div');
+    defeatOverlay.className = 'defeat-overlay show-defeat';
+    
+    const defeatContent = document.createElement('div');
+    defeatContent.className = 'defeat-content';
+    defeatContent.innerHTML = `
+        <div style="font-size: 4rem; margin-bottom: 20px;">😔 ¡Tan Cerca! 😔</div>
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">¡Mejor suerte la próxima vez!</div>
+        <div style="font-size: 2rem; color: #fbbf24;">${totalScore}/${target} PUNTOS</div>
+        <div style="font-size: 1.5rem; color: #ef4444;">Solo faltaron ${difference} puntos</div>
+    `;
+    
+    defeatOverlay.appendChild(defeatContent);
+    document.body.appendChild(defeatOverlay);
+    
+    // Remover después de la animación
+    setTimeout(() => {
+        if(defeatOverlay.parentNode) {
+            defeatOverlay.parentNode.removeChild(defeatOverlay);
+        }
+    }, 3000);
+    
+    console.log('💔 Animación de derrota iniciada');
 }
 
 </script>

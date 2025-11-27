@@ -2101,10 +2101,22 @@ function finishFastMoney() {
         }
     });
     
+    // 🎬 Enviar animación específica según resultado
+    setTimeout(() => {
+        sendMessage({
+            type: success ? 'fast_money_victory_animation' : 'fast_money_defeat_animation',
+            payload: {
+                totalScore: totalScore,
+                target: currentTarget,
+                difference: success ? totalScore - currentTarget : currentTarget - totalScore
+            }
+        });
+    }, 1000); // Delay para que se vea primero el total
+    
     // Actualizar UI final
     const message = success ? 
         `🎉 ¡¡¡FELICIDADES!!! ¡${totalScore}/${currentTarget} - DINERO RÁPIDO COMPLETADO!` : 
-        `😔 Total: ${totalScore}/${currentTarget} - ¡Mejor suerte la próxima vez!`;
+        `😔 Total: ${totalScore}/${currentTarget} - ¡Faltaron ${currentTarget - totalScore} puntos!`;
     
     document.getElementById('fastControlStatus').textContent = message;
     
