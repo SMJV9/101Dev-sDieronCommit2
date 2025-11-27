@@ -10,12 +10,35 @@
 <body>
 <header>
     <h1>📚 Banco de Preguntas</h1>
-    <div>
+    <div style="display:flex;gap:20px;align-items:center">
         <a href="/controller" style="color:var(--accent);text-decoration:none;font-weight:700">← Volver al Controller</a>
     </div>
 </header>
 
 <main style="max-width:1200px;margin:0 auto">
+    <!-- Filtros -->
+    <section>
+        <h3>🔍 Filtros</h3>
+        <div style="display:flex;justify-content:flex-start;align-items:center;margin-bottom:16px;gap:20px">
+            <div>
+                <label>Filtrar por Tipo:</label>
+                <select id="typeFilter" style="width:200px">
+                    <option value="all">🎯 Todos los Tipos</option>
+                    <option value="round">🎯 Solo Rondas</option>
+                    <option value="fast_money">💰 Solo Dinero Rápido</option>
+                </select>
+            </div>
+            <div>
+                <label>Filtrar por Categoría:</label>
+                <select id="categoryFilter" style="width:200px">
+                    <option value="all">📚 Todas las Categorías</option>
+                    <option value="general">🌍 General</option>
+                    <option value="dev">💻 Desarrollo/Programación</option>
+                </select>
+            </div>
+        </div>
+    </section>
+
     <!-- Nueva Pregunta -->
     <section>
         <h3>➕ Nueva Pregunta</h3>
@@ -69,7 +92,7 @@
 <script>
 let savedQuestionsData = {};
 let newAnswers = [];
-let editingQuestionId = null; // Track if we're editing
+let editingQuestionId = null;
 
 // Load saved questions from DATABASE via API
 function loadSavedQuestions() {
@@ -100,9 +123,117 @@ function loadSavedQuestions() {
         });
 }
 
-// Save questions to DATABASE via API
-function saveSavedQuestions() {
-    // This is handled by individual API calls (store/update)
+// Render questions list - simple list without grouping
+function renderQuestionsList(keys = null) {
+    const container = document.getElementById('questionsList');
+    const emptyState = document.getElementById('emptyState');
+    const questionKeys = keys || Object.keys(savedQuestionsData);
+    
+    if (questionKeys.length === 0) {
+        container.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    container.innerHTML = '';
+    
+    // Simply render all questions in a list
+    questionKeys.forEach(id => {
+        const questionCard = createQuestionCard(id);
+        container.appendChild(questionCard);
+    });
+}
+
+// Create individual question card
+function createQuestionCard(id) {
+    const data = savedQuestionsData[id];
+    const card = document.createElement('div');
+    card.className = 'question-card' + (data.is_active ? '' : ' inactive-question');
+        
+    let answersHtml = '';
+    // Sort answers by points (highest to lowest)
+    const sortedAnswers = [...data.answers].sort((a, b) => b.count - a.count);
+    sortedAnswers.forEach(ans => {
+        answersHtml += `
+            <div class="answer-item">
+                <span class="answer-text">${escapeHtml(ans.text)}</span>
+                <span class="answer-points">${ans.count} pts</span>
+            </div>
+        `;
+    });
+    
+    const activeButton = data.is_active 
+        ? '<button class="btn-secondary" onclick="toggleActive(' + id + ')">🔒 Desactivar</button>'
+        : '<button class="btn-success" onclick="toggleActive(' + id + ')">✅ Activar</button>';
+    
+    const categoryName = data.category === 'dev' ? 'Desarrollo' : 'General';
+    
+    card.innerHTML = `
+        <div class="question-header" onclick="toggleQuestionDetails(${id})">
+            <div class="question-title-row">
+                <div class="question-title">
+                    ${escapeHtml(data.name)} 
+                    ${data.is_active ? '<span class="badge-active">✓ Activa</span>' : '<span class="badge-inactive">✗ Inactiva</span>'}
+                </div>
+                <div class="expand-icon">▼</div>
+            </div>
+            <div class="question-meta">
+                <span class="category-badge">${categoryName}</span>
+                <span class="type-badge ${data.question_type === 'fast_money' ? 'type-fast-money' : 'type-round'}">${data.question_type === 'fast_money' ? '⚡ Dinero Rápido' : '🎯 Ronda'}</span>
+                <span class="usage-count">Usada ${data.times_used} veces</span>
+            </div>
+        </div>
+        <div class="question-details" id="details-${id}" style="display: none;">
+            <div class="question-text">${escapeHtml(data.question)}</div>
+            <div class="answers-list">${answersHtml}</div>
+            <div class="question-actions">
+                <button onclick="loadToController(${id})">📋 Cargar al Controller</button>
+                <button onclick="editQuestion(${id})">✏️ Editar</button>
+                ${activeButton}
+                <button class="btn-danger" onclick="deleteQuestion(${id})">🗑️ Eliminar</button>
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Filter questions based on selected filters
+function filterQuestions() {
+    const typeFilter = document.getElementById('typeFilter').value;
+    const categoryFilter = document.getElementById('categoryFilter').value;
+    
+    const keys = Object.keys(savedQuestionsData);
+    const filteredKeys = keys.filter(id => {
+        const data = savedQuestionsData[id];
+        
+        // Type filter
+        if (typeFilter !== 'all') {
+            if (data.question_type !== typeFilter) return false;
+        }
+        
+        // Category filter
+        if (categoryFilter !== 'all') {
+            if (data.category !== categoryFilter) return false;
+        }
+        
+        return true;
+    });
+    
+    renderQuestionsList(filteredKeys);
+}
+
+// Add new answer to the list
+function addNewAnswer() {
+    const text = prompt('Texto de la respuesta:');
+    if (!text) return;
+    
+    const count = parseInt(prompt('Puntos de la respuesta:', '10'));
+    if (isNaN(count)) return;
+    
+    newAnswers.push({ text, count });
+    renderNewAnswers();
 }
 
 // Render new answers list
@@ -110,81 +241,46 @@ function renderNewAnswers() {
     const container = document.getElementById('newAnswersList');
     container.innerHTML = '';
     
-    newAnswers.forEach((ans, idx) => {
-        const div = document.createElement('div');
-        div.className = 'new-answer-item';
-        div.innerHTML = `
-            <input type="text" value="${escapeHtml(ans.text)}" placeholder="Respuesta" data-idx="${idx}" class="answer-text-input" />
-            <input type="number" value="${ans.count}" min="0" placeholder="Pts" data-idx="${idx}" class="answer-count-input" />
-            <button class="btn-danger" data-idx="${idx}" onclick="removeNewAnswer(${idx})">✕</button>
+    newAnswers.forEach((ans, index) => {
+        const answerDiv = document.createElement('div');
+        answerDiv.className = 'new-answer-item';
+        answerDiv.innerHTML = `
+            <span>${escapeHtml(ans.text)} (${ans.count} pts)</span>
+            <button onclick="removeNewAnswer(${index})" style="background:var(--danger);margin-left:10px">Eliminar</button>
         `;
-        container.appendChild(div);
-    });
-    
-    // Add event listeners
-    document.querySelectorAll('.answer-text-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-            const idx = parseInt(e.target.dataset.idx);
-            newAnswers[idx].text = e.target.value;
-        });
-    });
-    
-    document.querySelectorAll('.answer-count-input').forEach(input => {
-        input.addEventListener('input', (e) => {
-            const idx = parseInt(e.target.dataset.idx);
-            newAnswers[idx].count = parseInt(e.target.value) || 0;
-        });
+        container.appendChild(answerDiv);
     });
 }
 
-// Remove answer from new question
-function removeNewAnswer(idx) {
-    newAnswers.splice(idx, 1);
+// Remove answer from new answers list
+function removeNewAnswer(index) {
+    newAnswers.splice(index, 1);
     renderNewAnswers();
 }
 
-// Add new answer
-document.getElementById('addNewAnswer').addEventListener('click', () => {
-    newAnswers.push({text: '', count: 0});
-    renderNewAnswers();
-});
-
-// Save new question or update existing
-document.getElementById('saveNewQuestion').addEventListener('click', () => {
+// Save new question
+function saveNewQuestion() {
     const name = document.getElementById('newQuestionName').value.trim();
-    const questionText = document.getElementById('newQuestionText').value.trim();
-    const category = document.getElementById('newQuestionCategory').value; // Ya es el value del select
-    
-    if (!name) {
-        alert('⚠️ Ingresa un nombre para la pregunta');
-        return;
-    }
-    if (!questionText) {
-        alert('⚠️ Escribe la pregunta');
-        return;
-    }
-    if (newAnswers.length === 0 || newAnswers.every(a => !a.text.trim())) {
-        alert('⚠️ Agrega al menos una respuesta');
-        return;
-    }
-    
-    // Filter out empty answers and sort by points (descending)
-    const validAnswers = newAnswers
-        .filter(a => a.text.trim())
-        .sort((a, b) => b.count - a.count) // Ordenar de mayor a menor
-        .map(a => ({
-            text: a.text.trim(),
-            points: a.count
-        }));
-    
+    const question = document.getElementById('newQuestionText').value.trim();
+    const category = document.getElementById('newQuestionCategory').value;
     const questionType = document.getElementById('newQuestionType').value;
     
-    const data = {
+    if (!name || !question) {
+        alert('Completa el nombre y la pregunta');
+        return;
+    }
+    
+    if (newAnswers.length === 0) {
+        alert('Agrega al menos una respuesta');
+        return;
+    }
+    
+    const questionData = {
         name: name,
-        question_text: questionText,
+        question_text: question,
         category: category,
         question_type: questionType,
-        answers: validAnswers
+        answers: newAnswers
     };
     
     const url = editingQuestionId ? `/api/questions/${editingQuestionId}` : '/api/questions';
@@ -194,196 +290,71 @@ document.getElementById('saveNewQuestion').addEventListener('click', () => {
         method: method,
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         },
-        body: JSON.stringify(data)
+        body: JSON.stringify(questionData)
     })
     .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert(editingQuestionId ? '✅ Pregunta actualizada: ' + name : '✅ Pregunta guardada: ' + name);
-            loadSavedQuestions();
+    .then(data => {
+        if (data.success || data.question) {
+            alert(editingQuestionId ? '✅ Pregunta actualizada' : '✅ Pregunta guardada');
             clearForm();
+            loadSavedQuestions();
         } else {
-            alert('❌ Error: ' + JSON.stringify(result.error));
+            alert('❌ Error al guardar: ' + (data.message || 'Error desconocido'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('❌ Error al guardar la pregunta');
     });
-});
+}
 
 // Clear form
 function clearForm() {
     document.getElementById('newQuestionName').value = '';
     document.getElementById('newQuestionText').value = '';
-    document.getElementById('newQuestionCategory').value = 'general'; // Reset al valor por defecto
-    document.getElementById('newQuestionType').value = 'round'; // Reset al valor por defecto
+    document.getElementById('newQuestionCategory').value = 'general';
+    document.getElementById('newQuestionType').value = 'round';
     newAnswers = [];
     editingQuestionId = null;
     renderNewAnswers();
+    
     document.getElementById('saveNewQuestion').textContent = '💾 Guardar Pregunta';
     document.getElementById('cancelEdit').style.display = 'none';
-}
-
-// Render questions list
-function renderQuestionsList() {
-    const container = document.getElementById('questionsList');
-    const emptyState = document.getElementById('emptyState');
-    const keys = Object.keys(savedQuestionsData);
-    
-    if (keys.length === 0) {
-        container.innerHTML = '';
-        emptyState.style.display = 'block';
-        return;
-    }
-    
-    emptyState.style.display = 'none';
-    container.innerHTML = '';
-    
-    keys.forEach(id => {
-        const data = savedQuestionsData[id];
-        const card = document.createElement('div');
-        card.className = 'question-card' + (data.is_active ? '' : ' inactive-question');
-        
-        let answersHtml = '';
-        // Ordenar respuestas por puntos (mayor a menor) para mostrar
-        const sortedAnswers = [...data.answers].sort((a, b) => b.count - a.count);
-        sortedAnswers.forEach(ans => {
-            answersHtml += `
-                <div class="answer-item">
-                    <span class="answer-text">${escapeHtml(ans.text)}</span>
-                    <span class="answer-points">${ans.count} pts</span>
-                </div>
-            `;
-        });
-        
-        const activeButton = data.is_active 
-            ? '<button class="btn-secondary" onclick="toggleActive(' + id + ')">🔒 Desactivar</button>'
-            : '<button class="btn-success" onclick="toggleActive(' + id + ')">✅ Activar</button>';
-        
-        // Mostrar nombre legible de categoría
-        const categoryName = data.category === 'dev' ? 'Desarrollo' : 'General';
-        
-        card.innerHTML = `
-            <div class="question-title">
-                ${escapeHtml(data.name)} 
-                ${data.is_active ? '<span class="badge-active">✓ Activa</span>' : '<span class="badge-inactive">✗ Inactiva</span>'}
-            </div>
-            <div class="question-meta">
-                <span class="category-badge">${categoryName}</span>
-                <span class="type-badge ${data.question_type === 'fast_money' ? 'type-fast-money' : 'type-round'}">${data.question_type === 'fast_money' ? '⚡ Dinero Rápido' : '🎯 Ronda'}</span>
-                <span class="usage-count">Usada ${data.times_used} veces</span>
-            </div>
-            <div class="question-text">${escapeHtml(data.question)}</div>
-            <div class="answers-list">${answersHtml}</div>
-            <div class="question-actions">
-                <button onclick="loadToController(${id})">📋 Cargar al Controller</button>
-                <button onclick="editQuestion(${id})">✏️ Editar</button>
-                ${activeButton}
-                <button class="btn-danger" onclick="deleteQuestion(${id})">🗑️ Eliminar</button>
-            </div>
-        `;
-        
-        container.appendChild(card);
-    });
-}
-
-// Load question to controller
-function loadToController(id) {
-    fetch(`/api/questions/${id}/load`)
-        .then(response => response.json())
-        .then(result => {
-            if (result.success) {
-                // Store in localStorage for controller to pick up
-                const controllerData = {
-                    question: result.question,
-                    answers: result.answers
-                };
-                localStorage.setItem('game-load-question', JSON.stringify(controllerData));
-                alert('✅ Pregunta cargada. Abre el Controller para usarla.');
-                // Optionally redirect to controller
-                // window.location.href = '/controller';
-            } else {
-                alert('❌ Error al cargar la pregunta');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('❌ Error al cargar la pregunta');
-        });
 }
 
 // Edit question
 function editQuestion(id) {
     const data = savedQuestionsData[id];
-    if (!data) return;
+    editingQuestionId = id;
     
-    // Fill form with existing data
     document.getElementById('newQuestionName').value = data.name;
     document.getElementById('newQuestionText').value = data.question;
-    document.getElementById('newQuestionCategory').value = data.category; // Funciona con el select
-    document.getElementById('newQuestionType').value = data.question_type || 'round'; // Set question type
+    document.getElementById('newQuestionCategory').value = data.category;
+    document.getElementById('newQuestionType').value = data.question_type || 'round';
     
-    // Load answers ordenadas por puntos (mayor a menor)
-    newAnswers = [...data.answers]
-        .sort((a, b) => b.count - a.count)
-        .map(a => ({text: a.text, count: a.count}));
+    newAnswers = [...data.answers];
     renderNewAnswers();
     
-    // Set editing mode
-    editingQuestionId = id;
     document.getElementById('saveNewQuestion').textContent = '💾 Actualizar Pregunta';
     document.getElementById('cancelEdit').style.display = 'inline-block';
-    
-    // Scroll to top
-    window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-// Cancel edit
-document.getElementById('cancelEdit').addEventListener('click', clearForm);
-
-// Toggle active status
-function toggleActive(id) {
-    fetch(`/api/questions/${id}/toggle-active`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        }
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            loadSavedQuestions();
-        } else {
-            alert('❌ Error al cambiar el estado');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Error al cambiar el estado');
-    });
 }
 
 // Delete question
 function deleteQuestion(id) {
-    const data = savedQuestionsData[id];
-    if (!confirm('¿Eliminar la pregunta "' + data.name + '"?')) {
-        return;
-    }
+    if (!confirm('¿Seguro que quieres eliminar esta pregunta?')) return;
     
     fetch(`/api/questions/${id}`, {
         method: 'DELETE',
         headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
     .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('✅ ' + result.message);
+    .then(data => {
+        if (data.success) {
+            alert('✅ Pregunta eliminada');
             loadSavedQuestions();
         } else {
             alert('❌ Error al eliminar');
@@ -395,13 +366,65 @@ function deleteQuestion(id) {
     });
 }
 
-// Helper to escape HTML
-function escapeHtml(s) {
-    if (!s) return '';
-    return String(s).replace(/[&<>"']/g, function(c) {
-        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c];
+// Toggle question active status
+function toggleActive(id) {
+    fetch(`/api/questions/${id}/toggle-active`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadSavedQuestions();
+        } else {
+            alert('❌ Error al cambiar estado');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error al cambiar estado');
     });
 }
+
+// Toggle question details visibility
+function toggleQuestionDetails(id) {
+    const details = document.getElementById(`details-${id}`);
+    const icon = document.querySelector(`[onclick="toggleQuestionDetails(${id})"] .expand-icon`);
+    
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        icon.textContent = '▲';
+    } else {
+        details.style.display = 'none';
+        icon.textContent = '▼';
+    }
+}
+
+// Load question to controller
+function loadToController(id) {
+    window.open(`/controller?load=${id}`, '_blank');
+}
+
+// Escape HTML
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Event listeners
+document.getElementById('addNewAnswer').addEventListener('click', addNewAnswer);
+document.getElementById('saveNewQuestion').addEventListener('click', saveNewQuestion);
+document.getElementById('cancelEdit').addEventListener('click', clearForm);
+document.getElementById('typeFilter').addEventListener('change', filterQuestions);
+document.getElementById('categoryFilter').addEventListener('change', filterQuestions);
 
 // Initialize
 loadSavedQuestions();

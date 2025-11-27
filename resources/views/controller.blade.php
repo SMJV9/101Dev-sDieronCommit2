@@ -24,16 +24,15 @@
     <section>
         <label>Pregunta:</label>
         <input id="question" style="width:60%" placeholder="" />
-        <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700">📚 Banco de Preguntas</a>
         <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <label style="margin-bottom:0">Elegir desde banco:</label>
+            <label style="margin-bottom:0">Elegir pregunta:</label>
             <select id="questionDropdown" style="min-width:360px">
-                <option value="">-- seleccionar pregunta activa --</option>
+                <option value="">-- seleccionar pregunta --</option>
 
             </select>
             <button id="loadSelectedQuestion">Cargar</button>
             <button id="refreshQuestions" title="Actualizar lista" style="background:rgba(0,0,0,0.5);color:var(--text);border:1px solid rgba(102,252,241,0.3)">↻</button>
-            <span id="dropdownInfo" style="font-size:12px;color:var(--muted)">Muestra solo preguntas activas</span>
+            <span id="dropdownInfo" style="font-size:12px;color:var(--muted)">Banco de preguntas disponibles</span>
             <span id="dropdownStatus" style="font-size:12px;color:#94a3b8"></span>
         </div>
     </section>
@@ -72,7 +71,7 @@
             <button id="startRound">Iniciar ronda</button>
             <button id="nextRound" title="Usa los mismos equipos y conserva el marcador">Siguiente ronda</button>
             <button id="finishRound" style="margin-left:10px;background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)">🏁 Finalizar ronda</button>
-                <button id="quickGameBtn" style="margin-left:10px;background:linear-gradient(135deg,#06b6d4 0%, #06b6d4 100%);color:#042022">⚡ Juego rápido (Control)</button>
+            <a href="/questions" style="margin-left:12px;color:var(--accent);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;padding:5px 8px;background:rgba(102,252,241,0.1);border-radius:4px;font-size:13px;">📚 Banco de Preguntas</a>
                 <button id="fastMoneyBtn" style="margin-left:6px;background:linear-gradient(90deg,#f59e0b,#d97706);color:#ffffff;opacity:0.5;cursor:not-allowed" disabled>💰 DINERO RÁPIDO</button>
             <button id="addStrike" style="margin-left:10px;background:#ef4444;color:white;">❌ X</button>
             <span id="strikeCount" style="margin-left:10px;font-size:14px;font-weight:bold;color:#ef4444;">X: 0/3</span>
@@ -258,28 +257,39 @@ sendMessage = function(msg){
     }
 };
 
-// ===== Dropdown: fetch and load active questions (global) =====
+// ===== Dropdown: fetch and load individual questions =====
 async function fetchQuestionsForDropdown(){
     if(!questionDropdownEl) return;
     try{
         if(dropdownStatusEl) dropdownStatusEl.textContent = 'Cargando…';
-        const res = await fetch(API_QUESTIONS_BASE);
-        const data = await res.json();
-        const active = Array.isArray(data) ? data.filter(q => q && q.is_active) : [];
-        active.sort((a,b)=>{ const an=(a.name||'').toLowerCase(); const bn=(b.name||'').toLowerCase(); return an<bn?-1:an>bn?1:0; });
-        dropdownQuestionsIndex = active;
-        questionDropdownEl.innerHTML = '<option value="">-- seleccionar pregunta activa --</option>';
-        active.forEach(q => {
-            const cat = q.category === 'dev' ? 'Desarrollo' : 'General';
-            const used = q.times_used || 0;
+        
+        // Fetch questions
+        const questionsRes = await fetch(API_QUESTIONS_BASE);
+        const questions = await questionsRes.json();
+        
+        // Filter only active questions
+        const activeQuestions = Array.isArray(questions) ? questions.filter(q => q && q.is_active) : [];
+        
+        // Clear dropdown and add options
+        questionDropdownEl.innerHTML = '<option value="">-- seleccionar pregunta --</option>';
+        dropdownQuestionsIndex = {};
+        
+        // Add individual question options
+        activeQuestions.forEach(question => {
             const opt = document.createElement('option');
-            opt.value = String(q.id);
-            opt.textContent = `${q.name} · ${cat} · usados: ${used}`;
+            opt.value = question.id;
+            const typeIcon = question.question_type === 'fast_money' ? '⚡' : '🎯';
+            const categoryIcon = question.category === 'dev' ? '💻' : '📚';
+            opt.textContent = `${typeIcon} ${question.name} (${categoryIcon} ${question.category === 'dev' ? 'Dev' : 'General'})`;
             questionDropdownEl.appendChild(opt);
+            
+            // Store question data for loading
+            dropdownQuestionsIndex[question.id] = question;
         });
+        
         if(dropdownStatusEl){
-            dropdownStatusEl.style.color = active.length ? '#22c55e' : '#f59e0b';
-            dropdownStatusEl.textContent = active.length ? `${active.length} activa(s)` : 'No hay preguntas activas';
+            dropdownStatusEl.style.color = activeQuestions.length ? '#22c55e' : '#f59e0b';
+            dropdownStatusEl.textContent = activeQuestions.length ? `${activeQuestions.length} pregunta(s)` : 'No hay preguntas activas';
         }
     }catch(e){
         console.error('Error fetching questions for dropdown', e);
@@ -289,25 +299,179 @@ async function fetchQuestionsForDropdown(){
 
 async function loadSelectedQuestion(){
     if(!questionDropdownEl) return;
-    const id = questionDropdownEl.value;
-    if(!id){ alert('Selecciona una pregunta'); return; }
+    const questionId = questionDropdownEl.value;
+    if(!questionId){ alert('Selecciona una pregunta'); return; }
+    
     try{
-        const res = await fetch(`${API_QUESTIONS_BASE}/${id}/load`);
+        const res = await fetch(`${API_QUESTIONS_BASE}/${questionId}/load`);
         const payload = await res.json();
-        if(!payload || !payload.success){ alert('No se pudo cargar la pregunta'); return; }
-    questionEl.value = payload.question || '';
-    answers = (payload.answers || []).map(a => ({text:a.text, count:a.count, revealed:false, correct:false}));
+        if(!payload || !payload.success){ 
+            alert('No se pudo cargar la pregunta'); 
+            return; 
+        }
+        
+        questionEl.value = payload.question || '';
+        answers = (payload.answers || []).map(a => ({text:a.text, count:a.count, revealed:false, correct:false}));
         answers.sort((a,b)=> b.count - a.count);
         render();
+        
         const initPayload = {answers, state:'Pregunta cargada', question: questionEl.value};
         sendMessage({type:'init', payload: initPayload});
         stateEl.textContent = 'Pregunta cargada';
-    // Mantén referencia de respuestas en la ronda actual para acciones como "finalizar ronda"
-    currentRound.answers = answers.map(a=>({...a}));
+        
+        // Mantén referencia de respuestas en la ronda actual para acciones como "finalizar ronda"
+        currentRound.answers = answers.map(a=>({...a}));
+        
+        console.log('✅ Pregunta cargada:', payload.question);
     }catch(e){
         console.error('Error loading selected question', e);
         alert('Ocurrió un error al cargar la pregunta');
     }
+}
+
+// Modal functions removed - now using simple dropdown
+function showGameQuestionSelector_REMOVED(gameId, questions) {
+    const gameName = gameId === 'unassigned' ? 'Preguntas Sin Asignar' : `Partida ${Object.keys(dropdownQuestionsIndex).indexOf(gameId) + 1}`;
+    
+    const roundQuestions = questions.filter(q => q.question_type === 'round');
+    const fastMoneyQuestions = questions.filter(q => q.question_type === 'fast_money');
+    
+    let questionsHTML = '';
+    
+    // Render round questions
+    if (roundQuestions.length > 0) {
+        questionsHTML += `
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: var(--accent2); margin: 0 0 10px 0; font-size: 16px;">🎯 Preguntas de Ronda (${roundQuestions.length})</h4>
+                <div style="display: grid; gap: 8px;">
+        `;
+        
+        roundQuestions.forEach(q => {
+            const cat = q.category === 'dev' ? 'Desarrollo' : 'General';
+            const usedCount = q.times_used || 0;
+            questionsHTML += `
+                <div class="question-item" onclick="selectQuestion(${q.id})" style="
+                    background: rgba(69,162,158,0.1); 
+                    border: 2px solid rgba(69,162,158,0.3); 
+                    border-radius: 6px; 
+                    padding: 12px; 
+                    cursor: pointer; 
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='rgba(69,162,158,0.6)'; this.style.background='rgba(69,162,158,0.2)'" onmouseout="this.style.borderColor='rgba(69,162,158,0.3)'; this.style.background='rgba(69,162,158,0.1)'">
+                    <div style="font-weight: 600; color: var(--accent2); margin-bottom: 4px;">${q.name}</div>
+                    <div style="font-size: 12px; color: var(--muted);">
+                        <span style="background: rgba(102,252,241,0.2); padding: 2px 6px; border-radius: 3px; margin-right: 8px;">${cat}</span>
+                        <span>Usada ${usedCount} veces</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        questionsHTML += '</div></div>';
+    }
+    
+    // Render fast money questions
+    if (fastMoneyQuestions.length > 0) {
+        questionsHTML += `
+            <div style="margin-bottom: 20px;">
+                <h4 style="color: #ffc107; margin: 0 0 10px 0; font-size: 16px;">⚡ Dinero Rápido (${fastMoneyQuestions.length})</h4>
+                <div style="display: grid; gap: 8px;">
+        `;
+        
+        fastMoneyQuestions.forEach(q => {
+            const cat = q.category === 'dev' ? 'Desarrollo' : 'General';
+            const usedCount = q.times_used || 0;
+            questionsHTML += `
+                <div class="question-item" onclick="selectQuestion(${q.id})" style="
+                    background: rgba(255,193,7,0.1); 
+                    border: 2px solid rgba(255,193,7,0.3); 
+                    border-radius: 6px; 
+                    padding: 12px; 
+                    cursor: pointer; 
+                    transition: all 0.2s;
+                " onmouseover="this.style.borderColor='rgba(255,193,7,0.6)'; this.style.background='rgba(255,193,7,0.2)'" onmouseout="this.style.borderColor='rgba(255,193,7,0.3)'; this.style.background='rgba(255,193,7,0.1)'">
+                    <div style="font-weight: 600; color: #ffc107; margin-bottom: 4px;">${q.name}</div>
+                    <div style="font-size: 12px; color: var(--muted);">
+                        <span style="background: rgba(102,252,241,0.2); padding: 2px 6px; border-radius: 3px; margin-right: 8px;">${cat}</span>
+                        <span>Usada ${usedCount} veces</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        questionsHTML += '</div></div>';
+    }
+    
+    if (questionsHTML === '') {
+        questionsHTML = '<p style="color: var(--muted); text-align: center; padding: 20px;">No hay preguntas en esta partida</p>';
+    }
+    
+    const modalHTML = `
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; overflow-y: auto;" id="gameQuestionModal">
+            <div style="background: var(--bg); border: 2px solid var(--accent); border-radius: 8px; padding: 20px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; margin: 20px;">
+                <div style="position: sticky; top: 0; background: var(--bg); padding: 0 0 15px 0; border-bottom: 1px solid rgba(102,252,241,0.2); margin-bottom: 20px;">
+                    <h3 style="color: var(--accent); margin: 0 0 10px 0;">🎮 ${gameName}</h3>
+                    <p style="color: var(--text); margin: 0; font-size: 14px;">Haz clic en cualquier pregunta para cargarla al controller:</p>
+                </div>
+                <div id="questionsContainer">
+                    ${questionsHTML}
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(102,252,241,0.2);">
+                    <button onclick="closeGameQuestionModal()" style="background: var(--muted); color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: 600;">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Modal function removed
+
+// Select a question from the visual selector
+async function selectQuestion(questionId) {
+    try {
+        const res = await fetch(`${API_QUESTIONS_BASE}/${questionId}/load`);
+        const payload = await res.json();
+        if (!payload || !payload.success) {
+            alert('No se pudo cargar la pregunta');
+            return;
+        }
+        
+        questionEl.value = payload.question || '';
+        answers = (payload.answers || []).map(a => ({text: a.text, count: a.count, revealed: false, correct: false}));
+        answers.sort((a, b) => b.count - a.count);
+        render();
+        
+        const initPayload = {answers, state: 'Pregunta cargada', question: questionEl.value};
+        sendMessage({type: 'init', payload: initPayload});
+        stateEl.textContent = 'Pregunta cargada';
+        
+        // Keep reference of answers in current round for actions like "finish round"
+        currentRound.answers = answers.map(a => ({...a}));
+        
+    } catch (e) {
+        console.error('Error loading selected question', e);
+        alert('Ocurrió un error al cargar la pregunta');
+    }
+}
+
+// Partida tracking functions removed - simplified to individual questions
+
+// Auto-advance function removed - simplified to individual questions
+
+// Legacy function for dropdown selector (kept for compatibility)
+async function loadGameQuestion() {
+    const select = document.getElementById('gameQuestionSelect');
+    if (!select) return;
+    
+    const questionId = select.value;
+    if (!questionId) {
+        alert('Selecciona una pregunta');
+        return;
+    }
+    
+    selectQuestion(questionId);
 }
 
 if(loadSelectedBtn){ loadSelectedBtn.addEventListener('click', loadSelectedQuestion); }
@@ -329,6 +493,8 @@ let activeTeam = null; // current team answering
 let roundNumber = 1; // Track which round we're on
 let pointMultiplier = 1; // Points multiplier (1x, 2x, 3x)
 let isRoundActive = false; // Track if there's an active round to lock team name inputs
+
+// Partida variables removed - simplified to individual questions
 
 // Function to lock/unlock team name inputs based on round state
 function setTeamInputsLocked(locked) {
@@ -668,6 +834,7 @@ finishRoundBtn.addEventListener('click', ()=>{
         finishRoundBtn.classList.remove('curtain-effect');
         finishRoundBtn.textContent = '🏁 Finalizar ronda';
         finishRoundBtn.disabled = false;
+        
     }, 3000 + (unrevealedIdx.length * 600) + 100);
 });
 
@@ -1344,6 +1511,10 @@ function handleIncoming(msg){
 let currentFastMoneyData = null;
 let currentQuestionIndex = 0;
 let fastMoneyScore = 0;
+let fastMoneySession = {
+    questions: [], // {question: string, selectedAnswer: string, points: number}
+    totalScore: 0
+};
 
 const fastMoneyQuestions = [
     { 
@@ -1377,15 +1548,34 @@ function showFastMoneyController() {
     const controller = document.getElementById('fastMoneyController');
     if(!controller) return;
     
-    controller.style.display = 'flex';
+    // 🎭 Agregar efecto de telón al botón
+    const fastMoneyBtn = document.getElementById('fastMoneyBtn');
+    if(fastMoneyBtn) {
+        fastMoneyBtn.classList.add('curtain-effect');
+        fastMoneyBtn.textContent = '🎭 Preparando Dinero Rápido...';
+    }
     
-    // Enviar mensaje al tablero para cambiar a modo Dinero Rápido
-    sendMessage({type: 'switch_fast_money', payload: {mode: 'start'}});
+    // 🎭 Enviar señal al board para mostrar telón de transición
+    sendMessage({type:'fast_money_curtain', payload:{action: 'start'}});
     
-    // Initialize controller
-    initializeFastMoneyController();
-    
-    showTerminalMessage('fast-money --controller=active --status=ready 💰');
+    // Esperar 2 segundos para la animación del telón
+    setTimeout(() => {
+        controller.style.display = 'flex';
+        
+        // Enviar mensaje al tablero para cambiar a modo Dinero Rápido
+        sendMessage({type: 'switch_fast_money', payload: {mode: 'start'}});
+        
+        // Initialize controller
+        initializeFastMoneyController();
+        
+        // Restaurar botón
+        if(fastMoneyBtn) {
+            fastMoneyBtn.classList.remove('curtain-effect');
+            fastMoneyBtn.innerHTML = '💰 DINERO RÁPIDO <span style="font-size:10px;opacity:0.8">¡ACTIVO!</span>';
+        }
+        
+        showTerminalMessage('fast-money --controller=active --status=ready 💰');
+    }, 2000);
 }
 
 function hideFastMoneyController() {
@@ -1404,6 +1594,12 @@ function initializeFastMoneyController() {
     currentQuestionIndex = 0;
     fastMoneyScore = 0;
     currentFastMoneyData = null;
+    
+    // 🔄 Limpiar sesión de dinero rápido
+    fastMoneySession = {
+        questions: [],
+        totalScore: 0
+    };
     
     // Reset UI
     document.getElementById('fastControlScore').textContent = '0';
@@ -1462,8 +1658,17 @@ function revealFastMoneyAnswer(answerIndex) {
     
     if(!answer) return;
     
+    // 📝 Registrar respuesta seleccionada en la sesión
+    const questionName = currentFastMoneyData.question || `Pregunta ${currentQuestionIndex + 1}`;
+    fastMoneySession.questions.push({
+        question: questionName,
+        selectedAnswer: answer,
+        points: points
+    });
+    
     // Update local score
     fastMoneyScore += points;
+    fastMoneySession.totalScore = fastMoneyScore;
     document.getElementById('fastControlScore').textContent = fastMoneyScore;
     
     // Mark as revealed
@@ -1507,20 +1712,99 @@ function resetFastMoney() {
 }
 
 function finishFastMoney() {
-    const success = fastMoneyScore >= 200;
+    const targetInput = document.getElementById('fastMoneyTarget');
+    const currentTarget = targetInput ? parseInt(targetInput.value) || 200 : 200;
+    
+    const success = fastMoneyScore >= currentTarget;
     const message = success ? '¡¡¡FELICIDADES!!! ¡Dinero Rápido completado!' : 'Dinero Rápido terminado. ¡Mejor suerte la próxima vez!';
     
-    alert(message);
+    // Mostrar resultado y opciones
+    const showResults = confirm(message + '\n\n¿Deseas mostrar las respuestas seleccionadas en el tablero?');
     
     sendMessage({
         type: 'fast_money_finish',
         payload: {
             success: success,
-            finalScore: fastMoneyScore
+            finalScore: fastMoneyScore,
+            showResults: showResults,
+            sessionData: showResults ? fastMoneySession : null
         }
     });
     
+    if(showResults) {
+        showFastMoneyResults();
+    }
+    
     showTerminalMessage(`fast-money --finish=true --score=${fastMoneyScore} --success=${success} 🏆`);
+}
+
+// 📊 Mostrar resumen de respuestas del dinero rápido en el controller
+function showFastMoneyResults() {
+    const resultsHtml = `
+        <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                    background: var(--bg); border: 2px solid var(--accent); border-radius: 12px; 
+                    padding: 20px; max-width: 500px; z-index: 10000; box-shadow: 0 8px 32px rgba(0,0,0,0.8);">
+            <h3 style="color: var(--accent); margin: 0 0 15px 0; text-align: center;">
+                🏆 Resumen Dinero Rápido
+            </h3>
+            <div style="max-height: 300px; overflow-y: auto;">
+                ${fastMoneySession.questions.map((item, index) => `
+                    <div style="background: rgba(102,252,241,0.1); padding: 10px; margin: 8px 0; border-radius: 6px;">
+                        <div style="font-weight: bold; color: var(--accent2); margin-bottom: 4px;">
+                            ${item.question}
+                        </div>
+                        <div style="color: var(--text); display: flex; justify-content: space-between;">
+                            <span>→ ${item.selectedAnswer}</span>
+                            <span style="color: #ffd700; font-weight: bold;">${item.points} pts</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(102,252,241,0.3);">
+                <div style="font-size: 18px; font-weight: bold; color: #ffd700; margin-bottom: 10px;">
+                    Total: ${fastMoneySession.totalScore} puntos
+                </div>
+                <button onclick="closeFastMoneyResults()" 
+                        style="background: var(--accent); color: var(--bg); border: none; padding: 8px 16px; 
+                               border-radius: 6px; cursor: pointer; font-weight: bold;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                    background: rgba(0,0,0,0.7); z-index: 9999;" onclick="closeFastMoneyResults()"></div>
+    `;
+    
+    const resultsContainer = document.createElement('div');
+    resultsContainer.id = 'fastMoneyResultsModal';
+    resultsContainer.innerHTML = resultsHtml;
+    document.body.appendChild(resultsContainer);
+}
+
+function closeFastMoneyResults() {
+    const modal = document.getElementById('fastMoneyResultsModal');
+    if(modal) modal.remove();
+}
+
+// 🎯 Actualizar meta del dinero rápido
+function updateFastMoneyTarget() {
+    const targetInput = document.getElementById('fastMoneyTarget');
+    const targetDisplay = document.getElementById('fastControlTarget');
+    
+    if(!targetInput || !targetDisplay) return;
+    
+    const newTarget = parseInt(targetInput.value) || 200;
+    targetDisplay.textContent = newTarget;
+    
+    // Enviar al tablero
+    sendMessage({
+        type: 'fast_money_target_update',
+        payload: {
+            target: newTarget
+        }
+    });
+    
+    showTerminalMessage(`fast-money --target=${newTarget} --updated=true 🎯`);
 }
 
 // Event listeners for Fast Money Controller
@@ -1538,6 +1822,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('resetFastMoney')?.addEventListener('click', resetFastMoney);
     document.getElementById('finishFastMoney')?.addEventListener('click', finishFastMoney);
     document.getElementById('fastControlExit')?.addEventListener('click', hideFastMoneyController);
+    
+    // Fast Money Target change
+    document.getElementById('fastMoneyTarget')?.addEventListener('change', updateFastMoneyTarget);
 });
 
 // logging disabled
@@ -1905,83 +2192,74 @@ if (document.readyState === 'loading') {
 
 <!-- Fast Money Controller Interface -->
 <div id="fastMoneyController" class="fast-money-controller" style="display:none;">
-    <div class="fast-money-overlay-bg"></div>
-    <div class="fast-money-control-container">
-        <div class="fast-money-control-header">
-            <h1 class="fast-money-control-title">💰 CONTROL DINERO RÁPIDO</h1>
-            <div class="fast-money-control-info">
-                <span class="target-info">META: 200 PUNTOS</span>
-                <span class="current-score">PUNTOS: <span id="fastControlScore">0</span></span>
-                <button id="fastControlExit" class="fast-control-exit">× Cerrar</button>
-            </div>
-        </div>
-        
-        <div class="fast-money-control-content">
-            <div class="questions-panel">
-                <h3 class="panel-title">🎯 PREGUNTAS</h3>
-                <div class="question-selector">
-                    <select id="questionSelect" class="question-dropdown">
-                        <option value="0">1. Lenguaje de programación popular</option>
-                        <option value="1">2. Navegador web</option>
-                        <option value="2">3. Red social</option>
-                        <option value="3">4. Sistema operativo</option>
-                        <option value="4">5. Empresa de tecnología</option>
-                    </select>
-                    <button id="loadQuestion" class="load-question-btn">📤 Cargar</button>
-                </div>
-                
-                <div class="current-question-display">
-                    <div class="question-text" id="currentQuestionText">Selecciona una pregunta</div>
+    <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;display:flex;align-items:center;justify-content:center;">
+        <div style="background:var(--bg);border:2px solid var(--accent);border-radius:12px;padding:30px;max-width:600px;width:90%;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h2 style="color:var(--accent);margin:0;">💰 DINERO RÁPIDO</h2>
+                <div style="display:flex;align-items:center;gap:15px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="color:var(--text);font-size:14px;">META:</span>
+                        <input id="fastMoneyTarget" type="number" value="200" min="50" max="500" step="25" 
+                               style="width:70px;padding:4px;border:1px solid var(--accent);border-radius:4px;background:var(--bg);color:var(--text);text-align:center;font-weight:bold;">
+                    </div>
+                    <span style="color:#ffd700;font-weight:bold;font-size:18px;">
+                        PUNTOS: <span id="fastControlScore">0</span>/<span id="fastControlTarget">200</span>
+                    </span>
+                    <button id="fastControlExit" style="background:var(--muted);color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;">× Cerrar</button>
                 </div>
             </div>
             
-            <div class="answers-control-panel">
-                <h3 class="panel-title">✅ RESPUESTAS</h3>
-                <div class="answers-grid-control">
-                    <div class="answer-control-item" data-answer="0">
-                        <div class="answer-number">1.</div>
-                        <input type="text" class="answer-input" id="answer1" placeholder="Respuesta #1" readonly>
-                        <div class="points-display" id="points1">--</div>
-                        <button class="reveal-btn" id="reveal1" disabled>🔓 Revelar</button>
-                    </div>
-                    <div class="answer-control-item" data-answer="1">
-                        <div class="answer-number">2.</div>
-                        <input type="text" class="answer-input" id="answer2" placeholder="Respuesta #2" readonly>
-                        <div class="points-display" id="points2">--</div>
-                        <button class="reveal-btn" id="reveal2" disabled>🔓 Revelar</button>
-                    </div>
-                    <div class="answer-control-item" data-answer="2">
-                        <div class="answer-number">3.</div>
-                        <input type="text" class="answer-input" id="answer3" placeholder="Respuesta #3" readonly>
-                        <div class="points-display" id="points3">--</div>
-                        <button class="reveal-btn" id="reveal3" disabled>🔓 Revelar</button>
-                    </div>
-                    <div class="answer-control-item" data-answer="3">
-                        <div class="answer-number">4.</div>
-                        <input type="text" class="answer-input" id="answer4" placeholder="Respuesta #4" readonly>
-                        <div class="points-display" id="points4">--</div>
-                        <button class="reveal-btn" id="reveal4" disabled>🔓 Revelar</button>
-                    </div>
-                    <div class="answer-control-item" data-answer="4">
-                        <div class="answer-number">5.</div>
-                        <input type="text" class="answer-input" id="answer5" placeholder="Respuesta #5" readonly>
-                        <div class="points-display" id="points5">--</div>
-                        <button class="reveal-btn" id="reveal5" disabled>🔓 Revelar</button>
-                    </div>
+            <div style="margin-bottom:20px;">
+                <select id="questionSelect" style="width:70%;padding:10px;margin-right:10px;border:1px solid var(--accent);border-radius:6px;background:var(--bg);color:var(--text);">
+                    <option value="0">1. Lenguaje de programación popular</option>
+                    <option value="1">2. Navegador web</option>
+                    <option value="2">3. Red social</option>
+                    <option value="3">4. Sistema operativo</option>
+                    <option value="4">5. Empresa de tecnología</option>
+                </select>
+                <button id="loadQuestion" style="background:var(--accent);color:var(--bg);border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">📤 Cargar</button>
+            </div>
+            
+            <div style="display:grid;gap:10px;margin-bottom:20px;">
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(102,252,241,0.1);border-radius:6px;" data-answer="0">
+                    <span style="font-weight:bold;color:var(--accent);min-width:25px;">1.</span>
+                    <input type="text" id="answer1" readonly style="flex:1;border:none;background:transparent;color:var(--text);padding:5px;" placeholder="Respuesta 1">
+                    <span id="points1" style="color:#ffd700;font-weight:bold;min-width:40px;">--</span>
+                    <button id="reveal1" disabled style="background:var(--accent2);color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Revelar</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(102,252,241,0.1);border-radius:6px;" data-answer="1">
+                    <span style="font-weight:bold;color:var(--accent);min-width:25px;">2.</span>
+                    <input type="text" id="answer2" readonly style="flex:1;border:none;background:transparent;color:var(--text);padding:5px;" placeholder="Respuesta 2">
+                    <span id="points2" style="color:#ffd700;font-weight:bold;min-width:40px;">--</span>
+                    <button id="reveal2" disabled style="background:var(--accent2);color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Revelar</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(102,252,241,0.1);border-radius:6px;" data-answer="2">
+                    <span style="font-weight:bold;color:var(--accent);min-width:25px;">3.</span>
+                    <input type="text" id="answer3" readonly style="flex:1;border:none;background:transparent;color:var(--text);padding:5px;" placeholder="Respuesta 3">
+                    <span id="points3" style="color:#ffd700;font-weight:bold;min-width:40px;">--</span>
+                    <button id="reveal3" disabled style="background:var(--accent2);color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Revelar</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(102,252,241,0.1);border-radius:6px;" data-answer="3">
+                    <span style="font-weight:bold;color:var(--accent);min-width:25px;">4.</span>
+                    <input type="text" id="answer4" readonly style="flex:1;border:none;background:transparent;color:var(--text);padding:5px;" placeholder="Respuesta 4">
+                    <span id="points4" style="color:#ffd700;font-weight:bold;min-width:40px;">--</span>
+                    <button id="reveal4" disabled style="background:var(--accent2);color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Revelar</button>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;background:rgba(102,252,241,0.1);border-radius:6px;" data-answer="4">
+                    <span style="font-weight:bold;color:var(--accent);min-width:25px;">5.</span>
+                    <input type="text" id="answer5" readonly style="flex:1;border:none;background:transparent;color:var(--text);padding:5px;" placeholder="Respuesta 5">
+                    <span id="points5" style="color:#ffd700;font-weight:bold;min-width:40px;">--</span>
+                    <button id="reveal5" disabled style="background:var(--accent2);color:white;border:none;padding:5px 10px;border-radius:4px;cursor:pointer;font-size:12px;">Revelar</button>
                 </div>
             </div>
             
-            <div class="fast-money-actions">
-                <div class="actions-row">
-                    <button id="nextQuestionBtn" class="action-btn next-question" disabled>▶️ Siguiente Pregunta</button>
-                    <button id="resetFastMoney" class="action-btn reset-game">🔄 Reiniciar</button>
-                    <button id="finishFastMoney" class="action-btn finish-game">🏆 Finalizar</button>
-                </div>
-                
-                <div class="fast-money-status">
-                    <div id="fastControlStatus" class="control-status">¡Listo para comenzar!</div>
-                </div>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button id="nextQuestionBtn" disabled style="background:var(--accent);color:var(--bg);border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">▶️ Siguiente</button>
+                <button id="resetFastMoney" style="background:#ef4444;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">🔄 Reiniciar</button>
+                <button id="finishFastMoney" style="background:#10b981;color:white;border:none;padding:10px 15px;border-radius:6px;cursor:pointer;font-weight:bold;">🏆 Finalizar</button>
             </div>
+            
+            <div id="fastControlStatus" style="text-align:center;margin-top:15px;color:var(--muted);font-size:14px;">¡Listo para comenzar!</div>
         </div>
     </div>
 </div>

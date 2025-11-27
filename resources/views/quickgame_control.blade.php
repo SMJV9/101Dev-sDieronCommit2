@@ -377,18 +377,56 @@ function actionReveal(){
     if(!control || control.queue.length===0) return;
     const qIdx = control.queue[control.position];
     const q = control.questions[qIdx];
-    // reveal only the answer with the highest points (to avoid showing all)
-    let top = null;
-    (q.answers||[]).forEach(a=>{ if(!top || (Number(a.count||0) > Number(top.count||0))){ top = a; } });
-    const payload = top ? { action:'reveal', team: control.team, player: control.player, qIdx: qIdx, answerText: top.text || top.name || '(respuesta)', points: Number(top.count||0), position: control.position+1 } : { action:'reveal', team: control.team, player: control.player, qIdx: qIdx, answerText: '(sin respuestas)', points: 0, position: control.position+1 };
+    
+    // Buscar la siguiente respuesta no revelada (empezando por la más alta)
+    let nextToReveal = null;
+    const sortedAnswers = (q.answers||[]).sort((a, b) => Number(b.count||0) - Number(a.count||0));
+    
+    for(let i = 0; i < sortedAnswers.length; i++) {
+        if(!sortedAnswers[i].revealed) {
+            nextToReveal = sortedAnswers[i];
+            break;
+        }
+    }
+    
+    if(!nextToReveal) {
+        // No hay más respuestas por revelar
+        log('No hay más respuestas por revelar');
+        return;
+    }
+    
+    const payload = { 
+        action:'reveal', 
+        team: control.team, 
+        player: control.player, 
+        qIdx: qIdx, 
+        answerText: nextToReveal.text || nextToReveal.name || '(respuesta)', 
+        points: Number(nextToReveal.count||0), 
+        position: control.position+1 
+    };
+    
     send({ type:'quick_game_event', payload });
-    log('Revelada respuesta principal (host)');
-    (q.answers||[]).forEach(a=>{ a.revealed = true; });
-    // mark as given for this player with combined reveal
-    if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player] = [];
-    control.playerAnswers[control.player][control.position] = { qIdx: qIdx, answerIndex: null, answerText: (top? (top.text||top.name||'') : ''), points:(top?Number(top.count||0):0), revealed:true };
-    control.position += 1;
-    if(control.position >= control.queue.length){ enterScoringMode(); } else { renderCurrentQuestion(); sendShowQuestion(); }
+    log(`Revelada respuesta: ${nextToReveal.text || nextToReveal.name}`);
+    
+    // ✅ Marcar solo ESTA respuesta como revelada
+    nextToReveal.revealed = true;
+    
+    // Verificar si todas las respuestas han sido reveladas
+    const allRevealed = (q.answers||[]).every(a => a.revealed);
+    
+    if(allRevealed) {
+        // Si todas están reveladas, marcar como completada para este jugador
+        if(!Array.isArray(control.playerAnswers[control.player])) control.playerAnswers[control.player] = [];
+        control.playerAnswers[control.player][control.position] = { 
+            qIdx: qIdx, 
+            answerIndex: null, 
+            answerText: 'Todas reveladas', 
+            points: (q.answers||[]).reduce((sum, a) => sum + Number(a.count||0), 0), 
+            revealed: true 
+        };
+        control.position += 1;
+        if(control.position >= control.queue.length){ enterScoringMode(); } else { renderCurrentQuestion(); sendShowQuestion(); }
+    }
 }
 
 function passQuestion(){

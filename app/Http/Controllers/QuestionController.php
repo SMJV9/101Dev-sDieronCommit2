@@ -14,7 +14,14 @@ class QuestionController extends Controller
      */
     public function index()
     {
-        $questions = Question::with('answers')->orderBy('created_at', 'desc')->get();
+        $questions = Question::with(['answers', 'games'])->orderBy('created_at', 'desc')->get();
+        
+        // Agregar game_id a cada pregunta para compatibilidad con frontend
+        $questions->transform(function ($question) {
+            $question->game_id = $question->games->first()?->id;
+            return $question;
+        });
+        
         return response()->json($questions);
     }
 
@@ -29,6 +36,7 @@ class QuestionController extends Controller
             'description' => 'nullable|string',
             'category' => 'nullable|string|max:255',
             'question_type' => 'required|in:round,fast_money',
+            'game_id' => 'nullable|exists:games,id',
             'answers' => 'required|array|min:1',
             'answers.*.text' => 'required|string',
             'answers.*.points' => 'required|integer|min:0',
@@ -47,6 +55,11 @@ class QuestionController extends Controller
             'question_type' => $request->question_type,
             'is_active' => true,
         ]);
+
+        // Asignar a partida si se especifica
+        if ($request->game_id) {
+            $question->games()->attach($request->game_id);
+        }
 
         // Ordenar respuestas por puntos de mayor a menor
         $sortedAnswers = collect($request->answers)->sortByDesc('points')->values();
@@ -102,6 +115,7 @@ class QuestionController extends Controller
             'description' => 'nullable|string',
             'category' => 'nullable|string|max:255',
             'question_type' => 'required|in:round,fast_money',
+            'game_id' => 'nullable|exists:games,id',
             'answers' => 'required|array|min:1',
             'answers.*.text' => 'required|string',
             'answers.*.points' => 'required|integer|min:0',
@@ -134,6 +148,12 @@ class QuestionController extends Controller
                 'points' => $answerData['points'],
                 'order' => $index + 1,
             ]);
+        }
+
+        // Actualizar asignación de partida
+        $question->games()->detach(); // Remover asignaciones anteriores
+        if ($request->game_id) {
+            $question->games()->attach($request->game_id);
         }
 
         // Recargar las respuestas

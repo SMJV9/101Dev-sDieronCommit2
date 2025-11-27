@@ -223,12 +223,12 @@ html,body{
 
 .curtain-left {
     border-right: none;
-    transform: translateX(-100%);
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
 }
 
 .curtain-right {
     border-left: none;
-    transform: translateX(100%);
+    clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
 }
 
 /* Texturas y pliegues del telón */
@@ -274,23 +274,47 @@ html,body{
 }
 
 @keyframes curtainCloseLeft {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(0); }
+    0% { 
+        clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+        transform: translateX(0);
+    }
+    100% { 
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        transform: translateX(0);
+    }
 }
 
 @keyframes curtainCloseRight {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(0); }
+    0% { 
+        clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+        transform: translateX(0);
+    }
+    100% { 
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        transform: translateX(0);
+    }
 }
 
 @keyframes curtainOpenLeft {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-100%); }
+    0% { 
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        transform: translateX(0);
+    }
+    100% { 
+        clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+        transform: translateX(0);
+    }
 }
 
 @keyframes curtainOpenRight {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(100%); }
+    0% { 
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        transform: translateX(0);
+    }
+    100% { 
+        clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%);
+        transform: translateX(0);
+    }
 }
 
 /* Mensaje de cambio de ronda */

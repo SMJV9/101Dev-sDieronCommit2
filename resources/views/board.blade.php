@@ -590,7 +590,7 @@
             </div>
             
             <div class="fast-money-questions">
-                <div class="question-display">
+                <div class="question-display" style="display: none;">
                     <div id="fastMoneyQuestion" class="current-question">Preparando preguntas...</div>
                 </div>
                 
@@ -905,6 +905,11 @@ function handleIncoming(msg){
             }
         }
         renderStrikes();
+    } else if(msg.type === 'fast_money_curtain'){
+        // 🎭 Mostrar animación de telón para dinero rápido
+        if(msg.payload && msg.payload.action === 'start') {
+            showCurtainAnimation('¡PREPARANDO DINERO RÁPIDO!');
+        }
     } else if(msg.type === 'switch_fast_money'){
         // Cambiar a modo Dinero Rápido
         if(msg.payload && msg.payload.mode === 'start') {
@@ -922,6 +927,11 @@ function handleIncoming(msg){
         if(msg.payload) {
             revealFastMoneyAnswer(msg.payload.answerIndex, msg.payload.answer, msg.payload.points, msg.payload.totalScore);
         }
+    } else if(msg.type === 'fast_money_target_update'){
+        // 🎯 Actualizar meta del dinero rápido
+        if(msg.payload && msg.payload.target) {
+            updateFastMoneyTargetDisplay(msg.payload.target);
+        }
     } else if(msg.type === 'fast_money_reset'){
         // Manejar reset de Fast Money
         resetFastMoneyBoard();
@@ -929,6 +939,13 @@ function handleIncoming(msg){
         // Manejar finalización de Fast Money
         if(msg.payload) {
             finishFastMoneyBoard(msg.payload.success, msg.payload.finalScore);
+            
+            // Mostrar respuestas seleccionadas si se solicitó
+            if(msg.payload.showResults && msg.payload.sessionData) {
+                setTimeout(() => {
+                    showFastMoneyResultsOnBoard(msg.payload.sessionData);
+                }, 2000);
+            }
         }
     } else if(msg.type === 'round_points'){
         // controller started a round; store points & teams and update display
@@ -1347,6 +1364,46 @@ function showCurtainTransition(roundNumber, subtitle) {
     }, 5200);
     
     console.log(`🎭 Transición de telón: ${roundNumber}`);
+}
+
+// 🎭 Función específica para animación del telón (sin mensaje de ronda)
+function showCurtainAnimation(customMessage) {
+    const curtainOverlay = document.getElementById('curtainOverlay');
+    const roundTitle = document.getElementById('roundTransitionTitle');
+    const roundSubtitle = document.getElementById('roundTransitionSubtitle');
+    const message = document.getElementById('roundTransitionMessage');
+    
+    if (!curtainOverlay) return;
+    
+    // Configurar el mensaje personalizado
+    if (roundTitle) roundTitle.textContent = customMessage || '¡PREPARANDO MODO ESPECIAL!';
+    if (roundSubtitle) roundSubtitle.textContent = '';
+    
+    // Mostrar overlay y iniciar animación de cierre
+    curtainOverlay.style.display = 'flex';
+    curtainOverlay.className = 'curtain-overlay curtain-closing';
+    
+    // Reproducir sonido teatral
+    playCurtainSound();
+    
+    // Mostrar mensaje después de que se cierre el telón
+    setTimeout(() => {
+        if (message) message.classList.add('message-visible');
+    }, 1800);
+    
+    // Abrir telón después de mostrar el mensaje
+    setTimeout(() => {
+        curtainOverlay.className = 'curtain-overlay curtain-opening';
+    }, 3500); // Tiempo más corto que la transición de ronda
+    
+    // Ocultar completamente después de la animación
+    setTimeout(() => {
+        curtainOverlay.style.display = 'none';
+        curtainOverlay.className = 'curtain-overlay';
+        if (message) message.classList.remove('message-visible');
+    }, 4700); // Tiempo total más corto
+    
+    console.log(`🎭 Animación de telón: ${customMessage}`);
 }
 
 // Función showRoundFinishCurtain eliminada - no se usa
@@ -1774,10 +1831,11 @@ document.getElementById('fastMoneyExit')?.addEventListener('click', hideFastMone
 // ===== FUNCIONES PARA CONTROLADOR DE DINERO RÁPIDO =====
 
 function updateFastMoneyQuestion(questionText, questionIndex) {
-    const questionElement = document.querySelector('.fast-money-question');
-    if(questionElement) {
-        questionElement.textContent = questionText;
-    }
+    // Título de pregunta ocultado - solo resetear respuestas
+    // const questionElement = document.querySelector('.fast-money-question');
+    // if(questionElement) {
+    //     questionElement.textContent = questionText;
+    // }
     
     // Reset answers for new question
     for(let i = 1; i <= 5; i++) {
@@ -1822,7 +1880,10 @@ function revealFastMoneyAnswer(answerIndex, answer, points, totalScore) {
     // Actualizar score
     const scoreEl = document.querySelector('.fast-money-score');
     if(scoreEl) {
-        scoreEl.textContent = `${totalScore}/200 PUNTOS`;
+        // Obtener la meta actual del elemento de meta
+        const targetElement = document.querySelector('.fast-money-target');
+        const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
+        scoreEl.textContent = `${totalScore}/${currentTarget} PUNTOS`;
         
         // Efecto de puntos
         if(points > 0) {
@@ -1869,7 +1930,12 @@ function resetFastMoneyBoard() {
     }
     
     const scoreEl = document.querySelector('.fast-money-score');
-    if(scoreEl) scoreEl.textContent = '0/200 PUNTOS';
+    if(scoreEl) {
+        // Obtener la meta actual
+        const targetElement = document.querySelector('.fast-money-target');
+        const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
+        scoreEl.textContent = `0/${currentTarget} PUNTOS`;
+    }
     
     console.log('🔄 Dinero Rápido reiniciado');
 }
@@ -1897,9 +1963,13 @@ function finishFastMoneyBoard(success, finalScore) {
         animation: finishPulse 2s ease-in-out;
     `;
     
+    // Obtener la meta actual
+    const targetElement = document.querySelector('.fast-money-target');
+    const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
+    
     finishMessage.innerHTML = success 
         ? `🏆🏆🏆<br>¡¡¡FELICIDADES!!!<br>DINERO RÁPIDO COMPLETADO<br>${finalScore} PUNTOS` 
-        : `😢 DINERO RÁPIDO TERMINADO<br>${finalScore}/200 PUNTOS<br>¡Mejor suerte la próxima vez!`;
+        : `😢 DINERO RÁPIDO TERMINADO<br>${finalScore}/${currentTarget} PUNTOS<br>¡Mejor suerte la próxima vez!`;
     
     overlay.appendChild(finishMessage);
     
@@ -1911,6 +1981,102 @@ function finishFastMoneyBoard(success, finalScore) {
     }, 5000);
     
     console.log(`🏆 Dinero Rápido finalizado - Éxito: ${success}, Puntos: ${finalScore}`);
+}
+
+// 📊 Mostrar resumen de respuestas del dinero rápido en el tablero
+function showFastMoneyResultsOnBoard(sessionData) {
+    const overlay = document.getElementById('fastMoneyOverlay');
+    if(!overlay) return;
+    
+    const resultsContainer = document.createElement('div');
+    resultsContainer.style.cssText = `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(135deg, #1e293b, #334155);
+        border: 3px solid #ffd700;
+        border-radius: 20px;
+        padding: 30px;
+        max-width: 80%;
+        max-height: 70%;
+        overflow-y: auto;
+        z-index: 10001;
+        box-shadow: 0 0 50px rgba(255, 215, 0, 0.3);
+    `;
+    
+    const questionsHtml = sessionData.questions.map((item, index) => `
+        <div style="background: rgba(255, 215, 0, 0.1); margin: 15px 0; padding: 20px; border-radius: 12px; border-left: 4px solid #ffd700;">
+            <div style="color: #ffd700; font-size: 24px; font-weight: bold; margin-bottom: 8px;">
+                ${item.question}
+            </div>
+            <div style="color: white; font-size: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <span>→ ${item.selectedAnswer}</span>
+                <span style="background: #ffd700; color: black; padding: 5px 15px; border-radius: 8px; font-weight: bold;">
+                    ${item.points} pts
+                </span>
+            </div>
+        </div>
+    `).join('');
+    
+    resultsContainer.innerHTML = `
+        <div style="text-align: center; margin-bottom: 25px;">
+            <h2 style="color: #ffd700; font-size: 36px; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                🏆 RESUMEN DINERO RÁPIDO
+            </h2>
+        </div>
+        <div style="max-height: 400px; overflow-y: auto;">
+            ${questionsHtml}
+        </div>
+        <div style="text-align: center; margin-top: 25px; padding-top: 20px; border-top: 2px solid #ffd700;">
+            <div style="font-size: 32px; font-weight: bold; color: #ffd700; margin-bottom: 15px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                TOTAL: ${sessionData.totalScore} PUNTOS
+            </div>
+            <div style="font-size: 18px; color: #94a3b8;">
+                Presiona cualquier tecla para cerrar
+            </div>
+        </div>
+    `;
+    
+    overlay.appendChild(resultsContainer);
+    
+    // Cerrar con cualquier tecla
+    const handleKeyPress = (e) => {
+        if(resultsContainer.parentNode) {
+            resultsContainer.remove();
+            document.removeEventListener('keydown', handleKeyPress);
+        }
+    };
+    
+    document.addEventListener('keydown', handleKeyPress);
+    
+    // Auto-cerrar después de 15 segundos
+    setTimeout(() => {
+        if(resultsContainer.parentNode) {
+            resultsContainer.remove();
+            document.removeEventListener('keydown', handleKeyPress);
+        }
+    }, 15000);
+    
+    console.log('📊 Mostrando resumen de respuestas en el tablero');
+}
+
+// 🎯 Actualizar meta del dinero rápido en el tablero
+function updateFastMoneyTargetDisplay(newTarget) {
+    // Actualizar el elemento de la meta
+    const targetElement = document.querySelector('.fast-money-target');
+    if(targetElement) {
+        targetElement.textContent = `META: ${newTarget} PUNTOS`;
+    }
+    
+    // Actualizar el display de puntuación si existe
+    const scoreElement = document.querySelector('.fast-money-score');
+    if(scoreElement) {
+        const currentScore = scoreElement.textContent.split('/')[0] || '0';
+        scoreElement.textContent = `${currentScore}/${newTarget} PUNTOS`;
+    }
+    
+    console.log(`🎯 Meta actualizada a ${newTarget} puntos`);
 }
 
 </script>
