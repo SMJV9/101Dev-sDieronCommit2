@@ -1797,10 +1797,12 @@ function loadFastMoneyQuestion() {
             container.style.opacity = '0.6';
             container.classList.add('blocked-answer');
         } else {
-            // Respuesta disponible
+            // Respuesta disponible - restaurar completamente
             revealBtn.disabled = false;
             revealBtn.textContent = 'Revelar';
             revealBtn.style.background = 'var(--accent2)';
+            revealBtn.style.cursor = 'pointer';
+            revealBtn.style.opacity = '1';
             container.style.opacity = '1';
             container.classList.remove('blocked-answer', 'revealed');
         }
@@ -1826,15 +1828,32 @@ function revealFastMoneyAnswer(answerIndex) {
     console.log('🎯 revealFastMoneyAnswer ejecutado, índice:', answerIndex);
     console.log('📊 currentFastMoneyData:', currentFastMoneyData);
     
+    // 🔒 Prevenir cambios durante revelado automático
+    if(autoRevealInterval !== null) {
+        console.log('⚠️ Revelado automático en progreso, ignorando acción manual');
+        document.getElementById('fastControlStatus').textContent = '⚠️ Espera a que termine el revelado automático';
+        return;
+    }
+    
     if(!currentFastMoneyData) {
         console.error('❌ No hay datos de Fast Money cargados');
         return;
     }
     
-    // Verificar si ya fue revelada para evitar doble puntuación
+    // 🔒 Verificar si ya fue revelada para evitar doble puntuación
     const answerContainer = document.querySelector(`[data-answer="${answerIndex}"]`);
     if(answerContainer && answerContainer.classList.contains('revealed')) {
         console.log('⚠️ Respuesta ya revelada, ignorando');
+        // Mostrar alerta visual
+        showTerminalMessage(`⚠️ fast-money --error="Respuesta ya revelada" --answer=${answerIndex + 1} 🚫`);
+        document.getElementById('fastControlStatus').textContent = `⚠️ La respuesta ${answerIndex + 1} ya fue revelada`;
+        return;
+    }
+    
+    // 🔒 Verificar si el botón ya está deshabilitado
+    const revealButton = document.getElementById(`reveal${answerIndex + 1}`);
+    if(revealButton && revealButton.disabled) {
+        console.log('⚠️ Botón ya deshabilitado, ignorando');
         return;
     }
     
@@ -1880,10 +1899,37 @@ function revealFastMoneyAnswer(answerIndex) {
     fastMoneySession.totalScore = fastMoneyScore;
     document.getElementById('fastControlScore').textContent = fastMoneyScore;
     
-    // Mark as revealed INMEDIATAMENTE para prevenir doble clic
+    // 🔒 Marcar como revelada INMEDIATAMENTE para prevenir doble clic
     document.querySelector(`[data-answer="${answerIndex}"]`).classList.add('revealed');
-    document.getElementById(`reveal${answerIndex + 1}`).disabled = true;
-    console.log(`🔒 Respuesta ${answerIndex + 1} marcada como revelada y botón deshabilitado`);
+    
+    // Deshabilitar y cambiar estilo del botón revelado
+    const revealBtn = document.getElementById(`reveal${answerIndex + 1}`);
+    if(revealBtn) {
+        revealBtn.disabled = true;
+        revealBtn.textContent = '✅ Revelada';
+        revealBtn.style.background = '#10b981';
+        revealBtn.style.cursor = 'not-allowed';
+        revealBtn.style.opacity = '0.8';
+    }
+    
+    // 🚫 DESHABILITAR TODOS LOS DEMÁS BOTONES de esta pregunta
+    if(currentFastMoneyData && currentFastMoneyData.answers) {
+        for(let i = 0; i < currentFastMoneyData.answers.length; i++) {
+            if(i !== answerIndex) { // No tocar el botón que acabamos de revelar
+                const otherBtn = document.getElementById(`reveal${i + 1}`);
+                if(otherBtn && !otherBtn.disabled) {
+                    otherBtn.disabled = true;
+                    otherBtn.textContent = '🚫 Bloqueada';
+                    otherBtn.style.background = '#ef4444';
+                    otherBtn.style.cursor = 'not-allowed';
+                    otherBtn.style.opacity = '0.5';
+                    console.log(`🚫 Botón ${i + 1} deshabilitado (respuesta no seleccionada)`);
+                }
+            }
+        }
+    }
+    
+    console.log(`🔒 Respuesta ${answerIndex + 1} revelada y TODOS los demás botones deshabilitados`);
     
     // Send to board SIN PUNTOS - solo mostrar respuesta
     sendMessage({
@@ -1906,6 +1952,13 @@ function revealFastMoneyAnswer(answerIndex) {
 }
 
 function nextFastMoneyQuestion() {
+    // 🔒 Prevenir cambios durante revelado automático
+    if(autoRevealInterval !== null) {
+        console.log('⚠️ No se puede cambiar pregunta durante revelado automático');
+        document.getElementById('fastControlStatus').textContent = '⚠️ Espera a que termine el revelado automático';
+        return;
+    }
+    
     if(currentQuestionIndex < fastMoneyQuestions.length - 1) {
         const nextIndex = currentQuestionIndex + 1;
         document.getElementById('questionSelect').value = nextIndex;
