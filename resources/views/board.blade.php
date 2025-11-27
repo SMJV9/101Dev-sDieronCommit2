@@ -664,7 +664,7 @@
         <div class="fast-money-content">
             <!-- Puntuación total centrada -->
             <div class="fast-money-score">
-                <div id="fastMoneyTotalScore" class="total-score-display">187/200 PUNTOS</div>
+                <div id="fastMoneyTotalScore" class="total-score-display">META: 200 PUNTOS</div>
             </div>
             
             <!-- Dos columnas para participantes -->
@@ -1079,6 +1079,11 @@ function handleIncoming(msg){
         // 💰 Revelar puntos totales al final
         if(msg.payload) {
             revealFastMoneyTotal(msg.payload.totalScore, msg.payload.target, msg.payload.success);
+        }
+    } else if(msg.type === 'fast_money_reveal_step'){
+        // 🎯 Revelar una respuesta específica paso a paso
+        if(msg.payload) {
+            revealAnswerStep(msg.payload.participant, msg.payload.questionIndex, msg.payload.answer, msg.payload.points, msg.payload.stepNumber, msg.payload.totalSteps);
         }
     } else if(msg.type === 'fast_money_curtain'){
         // 🎭 Mostrar animación de telón
@@ -2134,12 +2139,24 @@ function revealFastMoneyTotal(totalScore, target, success) {
         });
     }
     
-    // Actualizar score total
+    // 🎉 AHORA SÍ mostrar el resultado final con gran efecto
     const scoreEl = document.getElementById('fastMoneyTotalScore');
     if(scoreEl) {
-        scoreEl.textContent = `${totalScore}/${target} PUNTOS`;
-        scoreEl.style.color = success ? '#10b981' : '#ef4444';
-        scoreEl.style.animation = 'pulse 1s ease-in-out 5';
+        // Mostrar resultado final con animación dramática
+        setTimeout(() => {
+            scoreEl.textContent = `¡${totalScore}/${target} PUNTOS!`;
+            scoreEl.style.color = success ? '#10b981' : '#ef4444';
+            scoreEl.style.animation = 'pulse 1s ease-in-out 5';
+            scoreEl.style.fontSize = '1.5em';
+            scoreEl.style.fontWeight = 'bold';
+            
+            // Efecto adicional si ganaron
+            if(success) {
+                scoreEl.style.background = 'linear-gradient(45deg, #10b981, #34d399)';
+                scoreEl.style.backgroundClip = 'text';
+                scoreEl.style.webkitBackgroundClip = 'text';
+            }
+        }, 500);
         
         // Gran efecto visual
         const totalEffect = document.createElement('div');
@@ -2200,13 +2217,13 @@ function resetFastMoneyBoard() {
         }
     }
     
-    // Reset score total
+    // Reset score total - solo mostrar meta
     const totalScoreEl = document.getElementById('fastMoneyTotalScore');
     if(totalScoreEl) {
         // Obtener la meta actual
         const targetElement = document.querySelector('.fast-money-target');
         const currentTarget = targetElement ? targetElement.textContent.match(/(\d+)/)?.[0] || '200' : '200';
-        totalScoreEl.textContent = `0/${currentTarget} PUNTOS`;
+        totalScoreEl.textContent = `META: ${currentTarget} PUNTOS`;
     }
     
     console.log('🔄 Dinero Rápido reiniciado');
@@ -2341,11 +2358,10 @@ function updateFastMoneyTargetDisplay(newTarget) {
         targetElement.textContent = `META: ${newTarget} PUNTOS`;
     }
     
-    // Actualizar el display de puntuación si existe
+    // Actualizar el display de puntuación si existe - solo mostrar meta
     const scoreElement = document.querySelector('.fast-money-score');
     if(scoreElement) {
-        const currentScore = scoreElement.textContent.split('/')[0] || '0';
-        scoreElement.textContent = `${currentScore}/${newTarget} PUNTOS`;
+        scoreElement.textContent = `META: ${newTarget} PUNTOS`;
     }
     
     console.log(`🎯 Meta actualizada a ${newTarget} puntos`);
@@ -2375,6 +2391,63 @@ function hideParticipantPoints(participant) {
     }
     
     console.log(`✅ Respuestas y puntos del participante ${participant} ocultados exitosamente`);
+}
+
+// 🎯 Revelar una respuesta específica paso a paso
+function revealAnswerStep(participant, questionIndex, answer, points, stepNumber, totalSteps) {
+    console.log(`🎯 Revelando paso ${stepNumber}/${totalSteps}: P${participant} Q${questionIndex + 1} - ${answer} = ${points} pts`);
+    
+    const questionNum = questionIndex + 1;
+    const answerEl = document.getElementById(`fmAnswer${questionNum}P${participant}`);
+    const pointsEl = document.getElementById(`fmPoints${questionNum}P${participant}`);
+    const container = document.querySelector(`[data-fm-answer="${questionIndex}"][data-participant="${participant}"]`);
+    
+    // Primero mostrar la respuesta si está oculta
+    if(answerEl && answerEl.textContent === '???') {
+        answerEl.textContent = answer;
+        answerEl.style.color = ''; // Restaurar color normal
+        
+        // Efecto de aparición de respuesta
+        answerEl.style.transform = 'scale(1.1)';
+        answerEl.style.background = '#3b82f6';
+        setTimeout(() => {
+            answerEl.style.transform = 'scale(1)';
+            answerEl.style.background = '';
+        }, 500);
+    }
+    
+    // Luego revelar los puntos con efecto dramático
+    if(pointsEl) {
+        setTimeout(() => {
+            pointsEl.textContent = points;
+            pointsEl.style.color = ''; // Restaurar color normal
+            
+            // Gran efecto visual para los puntos
+            pointsEl.style.background = '#f59e0b';
+            pointsEl.style.transform = 'scale(1.3)';
+            pointsEl.style.fontWeight = 'bold';
+            pointsEl.style.animation = 'pulse 0.8s ease-in-out 3';
+            
+            setTimeout(() => {
+                pointsEl.style.background = '';
+                pointsEl.style.transform = 'scale(1)';
+                pointsEl.style.animation = '';
+            }, 2000);
+        }, 800);
+    }
+    
+    // Marcar contenedor como revelado
+    if(container) {
+        container.classList.add('revealed');
+        
+        // Efecto de brillo en todo el contenedor
+        container.style.boxShadow = '0 0 20px rgba(245, 158, 11, 0.6)';
+        setTimeout(() => {
+            container.style.boxShadow = '';
+        }, 2500);
+    }
+    
+    console.log(`✅ Paso ${stepNumber}/${totalSteps} revelado: ${answer} = ${points} pts`);
 }
 
 </script>

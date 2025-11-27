@@ -1737,7 +1737,14 @@ function initializeFastMoneyController() {
     // Actualizar target dinámico
     const targetValue = document.getElementById('fastMoneyTarget').value;
     document.getElementById('fastControlTarget').textContent = targetValue;
-    // No hay currentQuestionText en el HTML, se removió el título de pregunta
+    
+    // Asegurar que el botón "Siguiente" esté visible al iniciar
+    const nextBtn = document.getElementById('nextQuestionBtn');
+    if(nextBtn) {
+        nextBtn.style.display = 'inline-block';
+        nextBtn.disabled = true;
+        nextBtn.textContent = '▶️ Siguiente';
+    }
     document.getElementById('fastControlStatus').textContent = '🎮 Participante 1 - ¡Listo para comenzar!';
     
     // Reset answers
@@ -1960,8 +1967,12 @@ function switchToNextParticipant() {
         
         // Ya terminaron ambos participantes
         document.getElementById('fastControlStatus').textContent = '¡Ambos participantes completaron el Dinero Rápido! Presiona "Revelar Puntos" para mostrar resultados.';
-        document.getElementById('nextQuestionBtn').disabled = true;
-        document.getElementById('nextQuestionBtn').textContent = '✅ Completado';
+        
+        // Ocultar completamente el botón "Siguiente"
+        const nextBtn = document.getElementById('nextQuestionBtn');
+        if(nextBtn) {
+            nextBtn.style.display = 'none';
+        }
     }
 }
 
@@ -1995,20 +2006,11 @@ function playDuplicateAnswerSound() {
 function revealFastMoneyPoints() {
     const targetInput = document.getElementById('fastMoneyTarget');
     const currentTarget = targetInput ? parseInt(targetInput.value) || 200 : 200;
-    const success = fastMoneyScore >= currentTarget;
     
-    // Enviar puntos totales al tablero
-    sendMessage({
-        type: 'fast_money_reveal_total',
-        payload: {
-            totalScore: fastMoneyScore,
-            target: currentTarget,
-            success: success
-        }
-    });
+    // Iniciar revelado automático de todas las respuestas
+    startAutomaticReveal(currentTarget);
     
-    showTerminalMessage(`fast-money --reveal-total=${fastMoneyScore}/${currentTarget} ${success ? '✅' : '❌'}`);
-    document.getElementById('fastControlStatus').textContent = `¡Puntos revelados! Total: ${fastMoneyScore}/${currentTarget}`;
+    showTerminalMessage(`fast-money --reveal-mode=automatic --starting 🎬`);
 }
 
 function resetFastMoney() {
@@ -2023,43 +2025,309 @@ function finishFastMoney() {
     const targetInput = document.getElementById('fastMoneyTarget');
     const currentTarget = targetInput ? parseInt(targetInput.value) || 200 : 200;
     
-    const success = fastMoneyScore >= currentTarget;
-    
-    // Preguntar primero si quiere revelar los puntos
-    const revealPoints = confirm(`Jugador terminado con ${fastMoneyScore} puntos (meta: ${currentTarget})\n\n¿Revelar puntos totales en el tablero?`);
-    
-    if(revealPoints) {
-        // Enviar puntos totales al tablero
-        sendMessage({
-            type: 'fast_money_reveal_total',
-            payload: {
-                totalScore: fastMoneyScore,
-                target: currentTarget,
-                success: success
+    // Calcular total real
+    let totalScore = 0;
+    for(let participant = 1; participant <= 2; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            for(let answer of participantAnswers[participantKey]) {
+                totalScore += answer.points;
             }
-        });
+        }
     }
     
-    const message = success ? '¡¡¡FELICIDADES!!! ¡Dinero Rápido completado!' : 'Dinero Rápido terminado. ¡Mejor suerte la próxima vez!';
+    const success = totalScore >= currentTarget;
     
-    // Mostrar resultado y opciones para mostrar respuestas
-    const showResults = confirm(message + '\n\n¿Deseas mostrar las respuestas seleccionadas en el tablero?');
-    
+    // Mostrar total final directamente
     sendMessage({
-        type: 'fast_money_finish',
+        type: 'fast_money_reveal_total',
         payload: {
-            success: success,
-            finalScore: fastMoneyScore,
-            showResults: showResults,
-            sessionData: showResults ? fastMoneySession : null
+            totalScore: totalScore,
+            target: currentTarget,
+            success: success
         }
     });
     
-    if(showResults) {
-        showFastMoneyResults();
+    // Actualizar UI final
+    const message = success ? 
+        `🎉 ¡¡¡FELICIDADES!!! ¡${totalScore}/${currentTarget} - DINERO RÁPIDO COMPLETADO!` : 
+        `😔 Total: ${totalScore}/${currentTarget} - ¡Mejor suerte la próxima vez!`;
+    
+    document.getElementById('fastControlStatus').textContent = message;
+    
+    // Deshabilitar botón finalizar
+    const finishBtn = document.getElementById('finishFastMoney');
+    if(finishBtn) {
+        finishBtn.textContent = '✅ Finalizado';
+        finishBtn.disabled = true;
     }
     
-    showTerminalMessage(`fast-money --finish=true --score=${fastMoneyScore} --success=${success} 🏆`);
+    showTerminalMessage(`fast-money --final-total=${totalScore}/${currentTarget} --success=${success} 🏆`);
+}
+// 🎯 Variables para el revelado
+let currentRevealStep = 0;
+let totalRevealQuestions = 0;
+let revealTarget = 200;
+let revealSuccess = false;
+let autoRevealInterval = null;
+
+// 🎬 Función para iniciar revelado automático
+function startAutomaticReveal(target) {
+    // Reiniciar variables
+    currentRevealStep = 0;
+    revealTarget = target;
+    
+    // Contar cuántas respuestas hay para revelar (ambos participantes)
+    totalRevealQuestions = 0;
+    for(let participant = 1; participant <= 2; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            totalRevealQuestions += participantAnswers[participantKey].length;
+        }
+    }
+    
+    if(totalRevealQuestions === 0) {
+        alert('No hay respuestas para revelar');
+        return;
+    }
+    
+    // Actualizar UI
+    document.getElementById('fastControlStatus').textContent = `🎬 Revelando automáticamente... 0/${totalRevealQuestions}`;
+    
+    // Deshabilitar botón revelar durante la secuencia
+    const revealBtn = document.getElementById('revealPointsBtn');
+    if(revealBtn) {
+        revealBtn.textContent = '🎬 Revelando...';
+        revealBtn.disabled = true;
+    }
+    
+    // Iniciar secuencia automática (cada 2 segundos)
+    autoRevealInterval = setInterval(() => {
+        revealNextAnswerAutomatic();
+    }, 2000);
+    
+    showTerminalMessage(`fast-money --auto-reveal=starting --total=${totalRevealQuestions} 🎬`);
+}
+
+// 🎯 Función para revelar automáticamente la siguiente respuesta
+function revealNextAnswerAutomatic() {
+    if(currentRevealStep >= totalRevealQuestions) {
+        // Terminar secuencia automática
+        clearInterval(autoRevealInterval);
+        autoRevealInterval = null;
+        
+        // Actualizar UI final
+        document.getElementById('fastControlStatus').textContent = '🎊 ¡Todas las respuestas reveladas automáticamente! Presiona "Finalizar" para ver el total.';
+        
+        const revealBtn = document.getElementById('revealPointsBtn');
+        if(revealBtn) {
+            revealBtn.textContent = '✅ Auto-Revelado Completo';
+            revealBtn.disabled = true;
+        }
+        
+        // Hacer prominente el botón finalizar
+        const finishBtn = document.getElementById('finishFastMoney');
+        if(finishBtn) {
+            finishBtn.style.background = '#ef4444';
+            finishBtn.style.animation = 'pulse 1s ease-in-out infinite';
+            finishBtn.textContent = '🏆 Ver Total Final';
+        }
+        
+        showTerminalMessage(`fast-money --auto-reveal=completed --ready-for-total 🎊`);
+        return;
+    }
+    
+    // Encontrar la siguiente respuesta a revelar
+    let answerFound = false;
+    let currentCount = 0;
+    
+    for(let participant = 1; participant <= 2 && !answerFound; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            for(let i = 0; i < participantAnswers[participantKey].length; i++) {
+                if(currentCount === currentRevealStep) {
+                    const answerData = participantAnswers[participantKey][i];
+                    
+                    // Revelar esta respuesta específica en el tablero
+                    sendMessage({
+                        type: 'fast_money_reveal_step',
+                        payload: {
+                            participant: participant,
+                            questionIndex: answerData.questionIndex,
+                            answer: answerData.answer,
+                            points: answerData.points,
+                            stepNumber: currentRevealStep + 1,
+                            totalSteps: totalRevealQuestions
+                        }
+                    });
+                    
+                    // Actualizar UI
+                    document.getElementById('fastControlStatus').textContent = 
+                        `🎬 Auto-revelado: P${participant} - "${answerData.answer}" = ${answerData.points} pts (${currentRevealStep + 1}/${totalRevealQuestions})`;
+                    
+                    currentRevealStep++;
+                    answerFound = true;
+                    break;
+                }
+                currentCount++;
+            }
+        }
+    }
+}
+
+// 🎬 Función para iniciar revelado paso a paso
+function startStepByStepReveal(target, success) {
+    // Reiniciar variables
+    currentRevealStep = 0;
+    revealTarget = target;
+    revealSuccess = success;
+    
+    // Contar cuántas respuestas hay para revelar (ambos participantes)
+    totalRevealQuestions = 0;
+    for(let participant = 1; participant <= 2; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            totalRevealQuestions += participantAnswers[participantKey].length;
+        }
+    }
+    
+    if(totalRevealQuestions === 0) {
+        alert('No hay respuestas para revelar');
+        return;
+    }
+    
+    // Cambiar UI para revelado paso a paso
+    document.getElementById('fastControlStatus').textContent = `🎬 ¡Listo para revelar! ${totalRevealQuestions} respuestas por mostrar`;
+    
+    // Cambiar botón "Revelar Puntos" a "Siguiente Respuesta"
+    const revealBtn = document.getElementById('revealPointsBtn');
+    if(revealBtn) {
+        revealBtn.textContent = '🎯 Revelar Siguiente';
+        revealBtn.onclick = revealNextAnswer;
+        revealBtn.disabled = false;
+    }
+    
+    // Preparar botón "Finalizar" para el total final
+    const finishBtn = document.getElementById('finishFastMoney');
+    if(finishBtn) {
+        finishBtn.textContent = '🏆 Finalizar';
+        finishBtn.disabled = false;
+        finishBtn.style.background = '#10b981';
+        finishBtn.style.animation = '';
+    }
+    
+    showTerminalMessage(`fast-money --reveal-mode=step-by-step --total=${totalRevealQuestions} --ready 🎬`);
+}
+
+// 🎯 Función para revelar la siguiente respuesta
+function revealNextAnswer() {
+    if(currentRevealStep >= totalRevealQuestions) {
+        // Ya se revelaron todas las respuestas, preparar para finalizar
+        document.getElementById('fastControlStatus').textContent = '🎊 ¡Todas las respuestas reveladas! Presiona "Finalizar" para ver el total.';
+        
+        // Cambiar botón "Revelar Siguiente" a completado
+        const revealBtn = document.getElementById('revealPointsBtn');
+        if(revealBtn) {
+            revealBtn.textContent = '✅ Respuestas Reveladas';
+            revealBtn.disabled = true;
+        }
+        
+        // Hacer que el botón "Finalizar" sea más prominente
+        const finishBtn = document.getElementById('finishFastMoney');
+        if(finishBtn) {
+            finishBtn.style.background = '#ef4444';
+            finishBtn.style.animation = 'pulse 1s ease-in-out infinite';
+            finishBtn.textContent = '🏆 Ver Total Final';
+        }
+        
+        showTerminalMessage(`fast-money --all-revealed --ready-for-total 🎊`);
+        return;
+    }
+    
+    // Encontrar la siguiente respuesta a revelar
+    let answerFound = false;
+    let currentCount = 0;
+    
+    for(let participant = 1; participant <= 2 && !answerFound; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            for(let i = 0; i < participantAnswers[participantKey].length; i++) {
+                if(currentCount === currentRevealStep) {
+                    const answerData = participantAnswers[participantKey][i];
+                    
+                    // Revelar esta respuesta específica en el tablero
+                    sendMessage({
+                        type: 'fast_money_reveal_step',
+                        payload: {
+                            participant: participant,
+                            questionIndex: answerData.questionIndex,
+                            answer: answerData.answer,
+                            points: answerData.points,
+                            stepNumber: currentRevealStep + 1,
+                            totalSteps: totalRevealQuestions
+                        }
+                    });
+                    
+                    // Actualizar UI
+                    document.getElementById('fastControlStatus').textContent = 
+                        `🎯 Revelado: P${participant} - "${answerData.answer}" = ${answerData.points} pts (${currentRevealStep + 1}/${totalRevealQuestions})`;
+                    
+                    // Actualizar botón
+                    const revealBtn = document.getElementById('revealPointsBtn');
+                    if(currentRevealStep + 1 >= totalRevealQuestions) {
+                        revealBtn.textContent = '🏆 Mostrar Total Final';
+                    } else {
+                        revealBtn.textContent = `🎯 Revelar Siguiente (${currentRevealStep + 2}/${totalRevealQuestions})`;
+                    }
+                    
+                    currentRevealStep++;
+                    answerFound = true;
+                    break;
+                }
+                currentCount++;
+            }
+        }
+    }
+}
+
+// 🏆 Función para revelar el total final
+function revealFinalTotal() {
+    // Calcular total real
+    let totalScore = 0;
+    for(let participant = 1; participant <= 2; participant++) {
+        const participantKey = `participant${participant}`;
+        if(participantAnswers[participantKey]) {
+            for(let answer of participantAnswers[participantKey]) {
+                totalScore += answer.points;
+            }
+        }
+    }
+    
+    // Enviar revelación final
+    sendMessage({
+        type: 'fast_money_reveal_total',
+        payload: {
+            totalScore: totalScore,
+            target: revealTarget,
+            success: totalScore >= revealTarget
+        }
+    });
+    
+    // Actualizar UI final
+    const message = totalScore >= revealTarget ? 
+        `🎉 ¡¡¡FELICIDADES!!! ¡${totalScore}/${revealTarget} - DINERO RÁPIDO COMPLETADO!` : 
+        `😔 Total: ${totalScore}/${revealTarget} - ¡Mejor suerte la próxima vez!`;
+    
+    document.getElementById('fastControlStatus').textContent = message;
+    
+    // Restaurar botón
+    const revealBtn = document.getElementById('revealPointsBtn');
+    if(revealBtn) {
+        revealBtn.textContent = '✅ Revelación Completa';
+        revealBtn.disabled = true;
+    }
+    
+    showTerminalMessage(`fast-money --final-total=${totalScore}/${revealTarget} --success=${totalScore >= revealTarget} 🏆`);
 }
 
 // 📊 Mostrar resumen de respuestas del dinero rápido en el controller
