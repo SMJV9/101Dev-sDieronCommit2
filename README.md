@@ -45,8 +45,8 @@ MySQL 8.0+
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/SMJV9/alexpelon.git
-cd alexpelon
+https://github.com/SMJV9/101Dev-sDieronCommit2.git
+cd 101Dev-sDieronCommit2
 ```
 
 ### 2. Instalar dependencias
